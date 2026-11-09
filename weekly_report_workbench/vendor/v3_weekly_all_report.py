@@ -595,7 +595,9 @@ def create_report(dates, metrics,
                   seo_cost_this_week, seo_cost_last_week, seo_cost_mtd,
                   kol_cost_this_week, kol_cost_last_week, kol_cost_mtd,
                   pc_refund_this_week, pc_refund_last_week, pc_refund_mtd,
-                  monthly_targets):
+                  monthly_targets,
+                  roi_extra_cost_this_week=0, roi_extra_cost_last_week=0,
+                  roi_extra_cost_mtd=0):
 
     wb = Workbook()
     ws = wb.active
@@ -693,7 +695,7 @@ def create_report(dates, metrics,
 
     # ===== 计算衍生指标 =====
 
-    # 总成本 = SEM成本 + 分佣成本 + SEO外链成本 + KOL成本
+    # 表内展示的总成本。网站版不再单独填写KOL成本，因此传入值为0。
     sem_tw = metrics['SEM消耗_本周']
     sem_lw = metrics['SEM消耗_上周']
     sem_mtd = metrics['SEM消耗_MTD']
@@ -701,6 +703,12 @@ def create_report(dates, metrics,
     total_cost_tw = sem_tw + commission_cost_this_week + seo_cost_this_week + kol_cost_this_week
     total_cost_lw = sem_lw + commission_cost_last_week + seo_cost_last_week + kol_cost_last_week
     total_cost_mtd = sem_mtd + commission_cost_mtd + seo_cost_mtd + kol_cost_mtd
+
+    # ROI专用成本：在表内总成本基础上，再加入自然来源成本总计。
+    # 自然来源成本只参与ROI分母，不写入表内“总成本”一行。
+    roi_cost_tw = total_cost_tw + roi_extra_cost_this_week
+    roi_cost_lw = total_cost_lw + roi_extra_cost_last_week
+    roi_cost_mtd = total_cost_mtd + roi_extra_cost_mtd
 
     # 辅助：安全除法
     def sdiv(a, b):
@@ -771,20 +779,20 @@ def create_report(dates, metrics,
     # ==================== 核心 ROI ====================
     add_section_header('核心ROI（末次归因）')
     add_row('WEB—新用户ROI',
-            sdiv(metrics['D0营收_本周'], total_cost_tw),
-            sdiv(metrics['D0营收_上周'], total_cost_lw),
-            sdiv(metrics['D0营收_MTD'], total_cost_mtd),
+            sdiv(metrics['D0营收_本周'], roi_cost_tw),
+            sdiv(metrics['D0营收_上周'], roi_cost_lw),
+            sdiv(metrics['D0营收_MTD'], roi_cost_mtd),
             format_pct, is_pct_target=True)
 
     add_row('WEB—新老综合ROI（除订阅）',
-            sdiv(metrics['除订阅总营收_本周'], total_cost_tw),
-            sdiv(metrics['除订阅总营收_上周'], total_cost_lw),
-            sdiv(metrics['除订阅总营收_MTD'], total_cost_mtd), format_pct,
+            sdiv(metrics['除订阅总营收_本周'], roi_cost_tw),
+            sdiv(metrics['除订阅总营收_上周'], roi_cost_lw),
+            sdiv(metrics['除订阅总营收_MTD'], roi_cost_mtd), format_pct,
             is_pct_target=True)
     add_row('WEB—新老综合ROI（含订阅）',
-            sdiv(metrics['含订阅总营收_本周'], total_cost_tw),
-            sdiv(metrics['含订阅总营收_上周'], total_cost_lw),
-            sdiv(metrics['含订阅总营收_MTD'], total_cost_mtd), format_pct,
+            sdiv(metrics['含订阅总营收_本周'], roi_cost_tw),
+            sdiv(metrics['含订阅总营收_上周'], roi_cost_lw),
+            sdiv(metrics['含订阅总营收_MTD'], roi_cost_mtd), format_pct,
             is_pct_target=True)
 
     # WEB—SEM投放新用户ROI（D7）

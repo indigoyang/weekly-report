@@ -145,17 +145,17 @@ REGION_HEADER_TITLES = {
 METRIC_FORMATS = {
     '新增注册': '#,##0',
     '注册单价': '$#,##0.00',
-    '客单价': '$#,##0.00',
+    '客单价': '$#,##0',
     '新老用户注册付费率': '0.00%',
     '新用户注册付费率': '0.00%',
     '新老用户付费量': '#,##0',
-    '新老用户营收': '$#,##0.00',
+    '新老用户营收': '$#,##0',
     '新用户订单量': '#,##0',
-    '新用户营收': '$#,##0.00',
-    '消耗': '$#,##0.00',
-    '新老用户ROI（除订阅）': '0.00%',
-    'SEM新用户ROI': '0.00%',
-    '全渠道新用户ROI': '0.00%',
+    '新用户营收': '$#,##0',
+    '消耗': '$#,##0',
+    '新老用户ROI（除订阅）': '0%',
+    'SEM新用户ROI': '0%',
+    '全渠道新用户ROI': '0%',
 }
 
 
@@ -601,7 +601,7 @@ def fill_report(wb, dates, this_week_data, last_week_data, mtd_data, cumulative_
 
             # D列(环比)：百分比格式
             mom_cell = ws.cell(row=row, column=4, value=mom_val)
-            mom_cell.number_format = '0.00%'
+            mom_cell.number_format = '0%' if 'ROI' in metric else '0.00%'
 
         # ===== 26年累计注册付费率行 =====
         cum_row = base_row + len(region_metrics)
