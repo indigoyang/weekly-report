@@ -679,7 +679,8 @@ def create_report(dates, metrics,
         if val is None:
             return "-"
         if fmt_type == 'pct':
-            return f"{val}%"
+            # 全渠道目标统一显示为整百分比，例如100%，不显示100.0%。
+            return f"{int(round(val))}%"
         elif fmt_type == 'dollar':
             return f"${int(val)}"
         else:
