@@ -9,8 +9,9 @@ from pathlib import Path
 import json
 
 import pandas as pd
-from openpyxl import load_workbook
-from openpyxl.styles import Border, PatternFill
+from openpyxl import Workbook, load_workbook
+from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
+from openpyxl.utils import get_column_letter
 
 from report_engine import blank_mask, prepare_data, safe_div, web_mask
 
@@ -447,6 +448,170 @@ def _natural_report(dates, metrics, monthly_targets):
     return wb
 
 
+MEMBER_TYPES = [
+    ("total", "总计", None, None),
+    ("monthly_plus", "月卡-plus", "monthly", "plus"),
+    ("monthly_pro", "月卡-pro", "monthly", "pro"),
+    ("yearly_plus", "年卡-plus", "yearly", "plus"),
+    ("yearly_pro", "年卡-pro", "yearly", "pro"),
+    ("lifetime_plus", "终身卡-plus", "lifetime", "plus"),
+    ("lifetime_pro", "终身卡-pro", "lifetime", "pro"),
+]
+
+
+def _member_period(orders, start, end):
+    """按原 member_weekly_report.py 口径统计会员类型订单量与付费额。"""
+    period = orders[_between(orders["订单生成时间"], start, end) & orders["__web"]].copy()
+    vip = period["VIP种类"].fillna("").astype(str).str.lower()
+    level = period["会员等级"].fillna("").astype(str).str.lower()
+    result = {}
+    for key, _name, vip_word, level_word in MEMBER_TYPES:
+        if key == "total":
+            frame = period
+        else:
+            frame = period[vip.str.contains(vip_word, regex=False) & level.str.contains(level_word, regex=False)]
+        result[f"{key}_orders"] = int(len(frame))
+        result[f"{key}_revenue"] = float(frame["订单金额"].sum())
+    return result
+
+
+def _member_share(value, total):
+    return value / total if total else None
+
+
+def _member_change(current, previous):
+    return (current - previous) / previous if previous else None
+
+
+def _member_report(dates, orders):
+    missing = [field for field in ("VIP种类", "会员等级") if field not in orders.columns]
+    if missing:
+        raise ValueError(f"会员类型周报需要订单数据字段：{', '.join(missing)}")
+
+    periods = {
+        "this_week": _member_period(orders, dates["this_week_start"], dates["this_week_end"]),
+        "last_week": _member_period(orders, dates["last_week_start"], dates["last_week_end"]),
+        "mtd": _member_period(orders, dates["month_start"], dates["month_end"]),
+    }
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "会员类型周报"
+
+    blue = PatternFill("solid", fgColor="4472C4")
+    white_bold = Font(name="宋体", size=12, bold=True, color="FFFFFF")
+    title_font = Font(name="宋体", size=16, bold=True)
+    body_font = Font(name="宋体", size=11)
+    label_font = Font(name="宋体", size=11, bold=True)
+    thin = Side(style="thin", color="000000")
+    border = Border(left=thin, right=thin, top=thin, bottom=thin)
+    center = Alignment(horizontal="center", vertical="center")
+
+    ws.merge_cells("A1:H1")
+    ws["A1"] = f"商业化效率-全渠道（自定义：{dates['this_week_start']:%Y.%m.%d}-{dates['this_week_end']:%Y.%m.%d}）"
+    ws["A1"].font = title_font
+    ws["A1"].alignment = center
+    ws.merge_cells("A2:H2")
+    ws["A2"] = (
+        f"统计周期：{dates['this_week_start']:%Y.%m.%d}-{dates['this_week_end']:%Y.%m.%d}  |  "
+        f"对比周期：{dates['last_week_start']:%Y.%m.%d}-{dates['last_week_end']:%Y.%m.%d}  |  "
+        f"MTD：{dates['month_start']:%Y.%m.%d}-{dates['month_end']:%Y.%m.%d}"
+    )
+    ws["A2"].font = body_font
+    ws["A2"].alignment = center
+
+    headers = ["指标", "本周", "本周占比", "上周", "上周占比", "环比", "MTD", "MTD占比"]
+    for col, header in enumerate(headers, 1):
+        cell = ws.cell(3, col, header)
+        cell.fill = blue; cell.font = white_bold; cell.border = border; cell.alignment = center
+
+    rows = []
+    for metric_type, suffix in (("orders", "订单量"), ("revenue", "付费额")):
+        totals = {period: periods[period][f"total_{metric_type}"] for period in periods}
+        for key, name, _vip, _level in MEMBER_TYPES:
+            current = periods["this_week"][f"{key}_{metric_type}"]
+            previous = periods["last_week"][f"{key}_{metric_type}"]
+            mtd = periods["mtd"][f"{key}_{metric_type}"]
+            label = f"总{suffix}" if key == "total" else f"{name}{suffix}"
+            rows.append([
+                label, current, _member_share(current, totals["this_week"]),
+                previous, _member_share(previous, totals["last_week"]),
+                _member_change(current, previous), mtd, _member_share(mtd, totals["mtd"]),
+                metric_type,
+            ])
+
+    for row_index, row in enumerate(rows, 4):
+        metric_type = row[-1]
+        for col, value in enumerate(row[:-1], 1):
+            cell = ws.cell(row_index, col, "-" if value is None else value)
+            cell.border = border; cell.alignment = center
+            cell.font = label_font if col == 1 else body_font
+        for col in (3, 5, 6, 8):
+            ws.cell(row_index, col).number_format = "0.0%"
+        if metric_type == "orders":
+            for col in (2, 4, 7): ws.cell(row_index, col).number_format = "#,##0"
+        else:
+            for col in (2, 4, 7): ws.cell(row_index, col).number_format = '"$"#,##0'
+
+    for col, width in enumerate((22, 13, 13, 13, 13, 11, 13, 13), 1):
+        ws.column_dimensions[get_column_letter(col)].width = width
+
+    # 会员类型表下方增加全渠道分地区MTD结构。
+    mtd_orders = orders[
+        _between(orders["订单生成时间"], dates["month_start"], dates["month_end"])
+        & orders["__web"]
+    ].copy()
+    mtd_orders["国家"] = mtd_orders["国家"].fillna("").astype(str).str.strip()
+    region_summary = (
+        mtd_orders.groupby("国家", dropna=False)
+        .agg(订单量=("订单金额", "size"), 付费额=("订单金额", "sum"))
+        .reset_index()
+    )
+    total_orders = int(len(mtd_orders))
+    total_revenue = float(mtd_orders["订单金额"].sum())
+    other_row = region_summary[region_summary["国家"].eq("其他")]
+    other_orders = int(other_row["订单量"].sum()) if not other_row.empty else 0
+    other_revenue = float(other_row["付费额"].sum()) if not other_row.empty else 0.0
+    top_regions = (
+        region_summary[~region_summary["国家"].isin(["", "其他"])]
+        .sort_values(["付费额", "订单量", "国家"], ascending=[False, False, True])
+        .head(13)
+    )
+    core_orders = int(top_regions["订单量"].sum())
+    core_revenue = float(top_regions["付费额"].sum())
+
+    start_row = 21
+    region_headers = ["全渠道", "本月MTD订单量", "MTD占比", "本月MTD付费额", "MTD占比"]
+    for col, header in enumerate(region_headers, 1):
+        cell = ws.cell(start_row, col, header)
+        cell.fill = blue; cell.font = white_bold; cell.border = border; cell.alignment = center
+
+    summary_rows = [
+        ("所有地区总计", total_orders, None, total_revenue, None),
+        ("以下核心地区总计", core_orders, _member_share(core_orders, total_orders), core_revenue, _member_share(core_revenue, total_revenue)),
+        ('"其他"地区', other_orders, _member_share(other_orders, total_orders), other_revenue, _member_share(other_revenue, total_revenue)),
+    ]
+    detail_rows = [
+        (row["国家"], int(row["订单量"]), _member_share(row["订单量"], total_orders),
+         float(row["付费额"]), _member_share(row["付费额"], total_revenue))
+        for _, row in top_regions.iterrows()
+    ]
+    for row_index, values in enumerate(summary_rows + detail_rows, start_row + 1):
+        for col, value in enumerate(values, 1):
+            cell = ws.cell(row_index, col, "/" if value is None else value)
+            cell.border = border; cell.alignment = center
+            cell.font = label_font if col == 1 else body_font
+        ws.cell(row_index, 2).number_format = "#,##0"
+        ws.cell(row_index, 3).number_format = "0.00%"
+        ws.cell(row_index, 4).number_format = '"$"#,##0'
+        ws.cell(row_index, 5).number_format = "0.00%"
+
+    ws.row_dimensions[1].height = 30
+    ws.row_dimensions[2].height = 24
+    ws.freeze_panes = "A4"
+    ws.sheet_view.showGridLines = False
+    return wb
+
+
 def _region_metrics(reg, orders, google, bing, start, end, region):
     countries = CORE_REGIONS[region]
     r = reg[_between(reg["注册时间"], start, end) & reg["__web"] & reg["地区"].isin(countries)]
@@ -586,6 +751,7 @@ def generate_v3_reports(reg, orders, google, bing, mobile, start, end, inputs, t
 
     natural_metrics = _natural_metrics(reg, orders, dates, inputs)
     natural_wb = _natural_report(dates, natural_metrics, monthly_natural)
+    member_wb = _member_report(dates, orders)
 
     stamp = f"{start:%Y.%m.%d}-{end:%Y.%m.%d}"
     return {
@@ -593,4 +759,5 @@ def generate_v3_reports(reg, orders, google, bing, mobile, start, end, inputs, t
         f"周报-SEM_末次归因新用户_{stamp}.xlsx": _wb_bytes(sem_wb),
         f"周报-SEM分地区（末次归因）_{stamp}.xlsx": _wb_bytes(region_wb),
         f"周报-自然来源_{stamp}.xlsx": _wb_bytes(natural_wb),
+        f"周报-会员类型_{stamp}.xlsx": _wb_bytes(member_wb),
     }, warnings
