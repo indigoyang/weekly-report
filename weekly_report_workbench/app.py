@@ -3,6 +3,7 @@ from copy import deepcopy
 from pathlib import Path
 from io import BytesIO
 from zipfile import ZIP_DEFLATED, ZipFile
+from html import escape
 
 import streamlit as st
 import pandas as pd
@@ -26,12 +27,15 @@ st.set_page_config(page_title="数据自动化", page_icon="A", layout="wide", i
 
 # 报告结构升级时清理当前浏览器会话里旧版本生成的结果。
 # 否则Streamlit热更新后，页面可能继续显示更新前缓存的4份报告。
-REPORT_SCHEMA_VERSION = "2026-11-09-five-reports-v1"
+REPORT_SCHEMA_VERSION = "2026-11-09-web-app-ui-v1"
 if st.session_state.get("report_schema_version") != REPORT_SCHEMA_VERSION:
     st.session_state.pop("reports", None)
     st.session_state.pop("warnings", None)
     st.session_state["report_schema_version"] = REPORT_SCHEMA_VERSION
 admin_mode = str(st.query_params.get("admin", "")) == "1"
+active_port = str(st.query_params.get("port", "web")).lower()
+if active_port not in {"web", "app"}:
+    active_port = "web"
 
 st.markdown("""
 <style>
@@ -39,7 +43,7 @@ st.markdown("""
 *{box-sizing:border-box}:root{--paper:#f6f5f0;--surface:#fff;--ink:#111;--lime:#e3f85a;--muted:#6b7280;--line:#111;--soft:#ecebe5;--success:#dff8a8}
 html{scroll-behavior:smooth}.stApp{background:var(--paper);color:var(--ink);font-family:'Inter','PingFang SC',sans-serif}.block-container{max-width:1480px;padding:34px 42px 80px;min-height:100vh;background:var(--paper)}
 [data-testid="stHeader"]{background:transparent}[data-testid="stToolbar"]{right:1rem}[data-testid="stSidebar"]{width:80px!important;min-width:80px!important;background:var(--paper);border-right:1px solid #1112}[data-testid="stSidebar"]>div:first-child{width:80px!important;padding:24px 0}[data-testid="stSidebarCollapseButton"],[data-testid="collapsedControl"]{display:none}
-.brand-mark{width:40px;height:40px;border-radius:50%;background:#111;color:var(--lime);display:grid;place-items:center;font-size:17px;font-weight:800;margin:0 auto 38px}.nav-link{width:40px;height:40px;display:grid;place-items:center;margin:14px auto;border-radius:50%;border:1px solid transparent;color:#9ca3af;text-decoration:none!important;font-size:17px;transition:.18s}.nav-link:hover{color:#111;background:#e5e7eb}.nav-link.active{color:#111;background:var(--lime);border-color:#111;box-shadow:2px 2px 0 #111;transform:translate(-1px,-1px)}.nav-space{height:300px}.nav-hint{font-size:9px;color:#9ca3af;text-align:center;line-height:1.35;margin:0 5px}
+.brand-mark{width:40px;height:40px;border-radius:50%;background:#111;color:var(--lime);display:grid;place-items:center;font-size:17px;font-weight:800;margin:0 auto 24px}.nav-link{width:40px;height:40px;display:grid;place-items:center;margin:10px auto;border-radius:50%;border:1px solid transparent;color:#9ca3af;text-decoration:none!important;font-size:17px;transition:.18s}.nav-link:hover{color:#111;background:#e5e7eb}.nav-link.active{color:#111;background:var(--lime);border-color:#111;box-shadow:2px 2px 0 #111;transform:translate(-1px,-1px)}.port-label{font-size:8px;font-weight:800;letter-spacing:1.2px;text-align:center;color:#9ca3af;margin:13px 0 2px}.port-divider{width:34px;height:1px;background:#1112;margin:15px auto}.nav-space{height:205px}.nav-hint{font-size:9px;color:#9ca3af;text-align:center;line-height:1.35;margin:0 5px}
 .topbar{padding:4px 0 28px;border-bottom:1px solid #1112;margin-bottom:24px}.eyebrow{font-size:11px;color:#6b7280;letter-spacing:2.2px;text-transform:uppercase;margin-bottom:9px}.topbar h1{font-family:'Noto Serif SC',serif;font-size:38px;line-height:1.2;font-weight:900;letter-spacing:-1.5px;margin:0 0 10px;color:#111}.topbar p{font-size:13px;color:#6b7280;margin:0}.steps{display:flex;align-items:center;gap:0;margin-top:28px}.step{display:flex;align-items:center;gap:8px;font-size:12px;color:#9ca3af;white-space:nowrap}.step b{width:25px;height:25px;display:grid;place-items:center;border-radius:50%;border:1px solid #9ca3af;font-size:9px}.step.done{color:#6b7280}.step.on{color:#111;font-weight:700}.step.on b{background:var(--lime);border-color:#111;color:#111}.step-line{width:48px;height:1px;background:#1113;margin:0 14px}
 .upload-head{display:flex;justify-content:space-between;align-items:flex-start;padding-bottom:13px;border-bottom:1px solid #1112;margin-bottom:18px}.upload-head h2{font-family:'Noto Serif SC',serif;font-size:21px;margin:0 0 5px;color:#111;font-weight:700}.upload-head h2:before{content:'01';font-family:'Inter',sans-serif;color:#9ca3af;font-size:12px;margin-right:10px}.upload-head p{margin:0;font-size:11px;color:#6b7280}.upload-count{font-size:10px;color:#111;padding:5px 8px;background:#f3f4f6;border:1px solid #d1d5db}
 [data-testid="stVerticalBlockBorderWrapper"]{border:1px solid #111!important;border-radius:0!important;padding:22px!important;background:#fff!important;box-shadow:none!important;margin-bottom:20px}[data-testid="stFileUploader"]{background:#fff;border:1px solid #111;border-radius:0;padding:13px 14px 7px;min-height:135px;transition:.18s}[data-testid="stFileUploader"]:hover{background:#e3f85a12}[data-testid="stFileUploader"] label{color:#111;font-weight:700;font-size:12px}[data-testid="stFileUploaderDropzone"]{min-height:64px;border:0;background:transparent;border-radius:0;padding:8px 0}[data-testid="stFileUploaderDropzone"] button{color:#111!important;background:var(--lime)!important;border:1px solid #111!important;border-radius:50%!important;width:35px!important;height:35px!important;min-width:35px!important;padding:0!important;font-size:0!important;box-shadow:none!important}[data-testid="stFileUploaderDropzone"] button:after{content:'＋';font-size:20px;color:#111;position:absolute;inset:0;display:grid;place-items:center}[data-testid="stFileUploaderDropzone"] small{font-size:9px;color:#9ca3af}
@@ -96,8 +100,15 @@ html{font-size:17px}
 [data-testid="stFileUploader"] [data-testid="stFileUploaderFileData"]{display:none!important}
 [data-testid="stFileUploader"] [data-testid="stFileUploaderFileName"]{display:none!important}
 [data-testid="stFileUploader"] [data-testid="stFileUploaderFileSize"]{display:none!important}
+[data-testid="stFileUploader"] [data-testid*="FileUploaderFile"]{display:none!important}
+[data-testid="stFileUploader"] [data-testid*="UploadedFile"]{display:none!important}
+[data-testid="stFileUploader"] [data-testid*="DeleteBtn"]{display:none!important}
+[data-testid="stFileUploader"] [role="list"]{display:none!important}
 [data-testid="stFileUploader"] ul{display:none!important}
-.file-status:not(.ok){display:none!important}.file-status.ok{margin:-8px 0 16px!important;font-size:12px!important}
+[data-testid="stFileUploaderDropzone"]{z-index:20!important}
+[data-testid="stFileUploaderDropzone"] button{z-index:21!important}
+.file-status:not(.ok){display:none!important}.file-status.ok{margin:-8px 0 16px!important;font-size:12px!important;line-height:1.45!important;overflow-wrap:anywhere!important}.file-status.ok span{display:block;margin-top:3px;color:#46501f;font-size:10px;font-weight:500}
+.app-shell{background:#fff;border:1px solid #111;padding:34px;margin-top:8px}.app-shell h2{font-family:'Noto Serif SC',serif;font-size:28px;margin:0 0 8px}.app-shell>p{color:#6b7280;font-size:14px;margin:0 0 28px}.app-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}.app-card{min-height:150px;border:1px solid #111;padding:24px;position:relative;background:#fafafa}.app-card b{display:block;font-family:'Noto Serif SC',serif;font-size:20px;margin-bottom:10px}.app-card span{font-size:12px;color:#6b7280}.app-card i{position:absolute;right:18px;top:18px;font-style:normal;font-size:10px;border:1px solid #111;padding:4px 7px;background:var(--lime)}
 @media(max-width:900px){[data-testid="stFileUploader"]{min-height:180px!important;padding:25px 22px!important}[data-testid="stFileUploader"] label strong{font-size:19px!important}[data-testid="stFileUploader"]:after{left:22px;bottom:24px;font-size:11px}[data-testid="stFileUploaderDropzone"]{right:20px!important;top:23px!important;width:50px!important;height:50px!important;min-height:50px!important}[data-testid="stFileUploaderDropzone"] button{width:50px!important;min-width:50px!important;height:50px!important}}
 </style>
 """, unsafe_allow_html=True)
@@ -106,11 +117,63 @@ if not admin_mode:
     st.markdown("<style>.st-key-admin_settings{display:none!important}</style>", unsafe_allow_html=True)
 
 with st.sidebar:
-    admin_link = "./" if admin_mode else "?admin=1#manual-data"
+    admin_link = "?port=web" if admin_mode else "?port=web&admin=1#manual-data"
     admin_title = "退出管理模式" if admin_mode else "管理设置"
-    st.markdown(f"""<div class="brand-mark" title="周报生成器">A</div><a class="nav-link active" href="#upload-data" title="上传数据">⇧</a><a class="nav-link" href="#manual-data" title="补充数据">＋</a><a class="nav-link" href="#report-result" title="生成结果">▦</a><a class="nav-link" href="{admin_link}" title="{admin_title}">⚙</a><a class="nav-link" href="#help" title="使用说明">?</a><div class="nav-space"></div><div class="nav-hint">WEEKLY<br>REPORT</div>""", unsafe_allow_html=True)
+    web_active = " active" if active_port == "web" else ""
+    app_active = " active" if active_port == "app" else ""
+    web_tools = ""
+    if active_port == "web":
+        web_tools = f"""
+        <div class="port-divider"></div>
+        <a class="nav-link" href="#upload-data" title="上传数据">⇧</a>
+        <a class="nav-link" href="#manual-data" title="补充数据">＋</a>
+        <a class="nav-link" href="#report-result" title="生成结果">▦</a>
+        <a class="nav-link" href="{admin_link}" title="{admin_title}">⚙</a>
+        """
+    st.markdown(
+        f"""
+        <div class="brand-mark" title="数据自动化">A</div>
+        <div class="port-label">WEB</div>
+        <a class="nav-link{web_active}" href="?port=web" title="WEB端">W</a>
+        <div class="port-label">APP</div>
+        <a class="nav-link{app_active}" href="?port=app" title="APP端">A</a>
+        {web_tools}
+        <a class="nav-link" href="#help" title="使用说明">?</a>
+        <div class="nav-space"></div><div class="nav-hint">DATA<br>AUTOMATION</div>
+        """,
+        unsafe_allow_html=True,
+    )
 
-st.markdown("""<header class="topbar"><div class="eyebrow">Weekly Report Generator</div><h1>数据自动化</h1><p>上传数据，自动完成校验、归因计算并生成五份可编辑周报</p><div class="steps"><div class="step done"><b>✓</b>选择周期</div><div class="step-line"></div><div class="step on"><b>02</b>上传数据</div><div class="step-line"></div><div class="step"><b>03</b>补充信息</div><div class="step-line"></div><div class="step"><b>04</b>生成报告</div></div></header><div id="upload-data"></div>""", unsafe_allow_html=True)
+if active_port == "app":
+    st.markdown(
+        """
+        <header class="topbar">
+          <div class="eyebrow">APP Report Workbench</div>
+          <h1>APP数据自动化</h1>
+          <p>APP端拥有独立的数据上传、统计口径和报告输出，不与WEB端数据混用</p>
+          <div class="steps">
+            <div class="step on"><b>01</b>APP工作台</div><div class="step-line"></div>
+            <div class="step"><b>02</b>上传数据</div><div class="step-line"></div>
+            <div class="step"><b>03</b>配置口径</div><div class="step-line"></div>
+            <div class="step"><b>04</b>生成报告</div>
+          </div>
+        </header>
+        <section class="app-shell">
+          <h2>APP端工作区</h2>
+          <p>页面结构已与WEB端分开。后续接入APP表格时，只需在这里配置APP专属数据和模板。</p>
+          <div class="app-grid">
+            <div class="app-card"><i>待接入</i><b>APP注册数据</b><span>APP用户注册、地区与渠道来源</span></div>
+            <div class="app-card"><i>待接入</i><b>APP订单数据</b><span>APP订单、会员类型与收入数据</span></div>
+            <div class="app-card"><i>待接入</i><b>APP投放消耗</b><span>APP各平台广告消耗及活动数据</span></div>
+            <div class="app-card"><i>待配置</i><b>APP报告模板</b><span>独立维护APP周报格式和统计口径</span></div>
+          </div>
+        </section>
+        """,
+        unsafe_allow_html=True,
+    )
+    st.stop()
+
+st.markdown("""<header class="topbar"><div class="eyebrow">WEB Report Workbench</div><h1>WEB数据自动化</h1><p>上传WEB数据，自动完成校验、归因计算并生成五份可编辑周报</p><div class="steps"><div class="step done"><b>✓</b>选择周期</div><div class="step-line"></div><div class="step on"><b>02</b>上传数据</div><div class="step-line"></div><div class="step"><b>03</b>补充信息</div><div class="step-line"></div><div class="step"><b>04</b>生成报告</div></div></header><div id="upload-data"></div>""", unsafe_allow_html=True)
 
 today = date.today()
 default_end = today - timedelta(days=1)
@@ -119,6 +182,15 @@ target_month_end = st.session_state.get("report_end", default_end)
 
 main_col, side_col = st.columns([3.15, 1], gap="large")
 
+def upload_status(files):
+    if not files:
+        return '<div class="file-status">待上传</div>'
+    names = "、".join(escape(file.name) for file in files)
+    return (
+        f'<div class="file-status ok">✓ 已上传 {len(files)} 个文件 · 等待格式检查'
+        f'<span>{names}</span></div>'
+    )
+
 with main_col:
     upload_container = st.container(border=True)
     with upload_container:
@@ -126,14 +198,14 @@ with main_col:
         u1, u2 = st.columns(2)
         with u1:
             reg_files = st.file_uploader("**注册数据**  \n用户注册与渠道来源", type=["xlsx","xlsm","csv"], accept_multiple_files=True)
-            st.markdown(f'<div class="file-status{" ok" if reg_files else ""}">{"✓ 已上传 "+str(len(reg_files))+" 个文件 · 等待格式检查" if reg_files else "待上传 · XLSX / XLSM / CSV · 单文件最大1GB"}</div>', unsafe_allow_html=True)
+            st.markdown(upload_status(reg_files), unsafe_allow_html=True)
             google_files = st.file_uploader("**Google消耗**  \nGoogle Ads 投放消耗", type=["xlsx","xlsm","csv"], accept_multiple_files=True)
-            st.markdown(f'<div class="file-status{" ok" if google_files else ""}">{"✓ 已上传 "+str(len(google_files))+" 个文件 · 等待格式检查" if google_files else "待上传 · XLSX / XLSM / CSV · 单文件最大1GB"}</div>', unsafe_allow_html=True)
+            st.markdown(upload_status(google_files), unsafe_allow_html=True)
         with u2:
             order_files = st.file_uploader("**订单数据**  \n订单及收入相关数据", type=["xlsx","xlsm","csv"], accept_multiple_files=True)
-            st.markdown(f'<div class="file-status{" ok" if order_files else ""}">{"✓ 已上传 "+str(len(order_files))+" 个文件 · 等待格式检查" if order_files else "待上传 · XLSX / XLSM / CSV · 单文件最大1GB"}</div>', unsafe_allow_html=True)
+            st.markdown(upload_status(order_files), unsafe_allow_html=True)
             bing_files = st.file_uploader("**Bing消耗**  \nBing Ads 投放消耗", type=["xlsx","xlsm","csv"], accept_multiple_files=True)
-            st.markdown(f'<div class="file-status{" ok" if bing_files else ""}">{"✓ 已上传 "+str(len(bing_files))+" 个文件 · 等待格式检查" if bing_files else "待上传 · XLSX / XLSM / CSV · 单文件最大1GB"}</div>', unsafe_allow_html=True)
+            st.markdown(upload_status(bing_files), unsafe_allow_html=True)
         uploaded_count = sum(bool(x) for x in [reg_files, order_files, google_files, bing_files])
         upload_header.markdown(f'<div class="upload-head"><div><h2>上传源数据</h2><p>上传4类数据，系统将自动完成格式检查和数据预处理</p></div><div class="upload-count">{uploaded_count} / 4 已完成</div></div>', unsafe_allow_html=True)
 
