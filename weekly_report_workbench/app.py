@@ -23,6 +23,14 @@ from rule_store import load_rules, save_rules, validate_rules
 
 
 st.set_page_config(page_title="数据自动化", page_icon="A", layout="wide", initial_sidebar_state="expanded")
+
+# 报告结构升级时清理当前浏览器会话里旧版本生成的结果。
+# 否则Streamlit热更新后，页面可能继续显示更新前缓存的4份报告。
+REPORT_SCHEMA_VERSION = "2026-11-09-five-reports-v1"
+if st.session_state.get("report_schema_version") != REPORT_SCHEMA_VERSION:
+    st.session_state.pop("reports", None)
+    st.session_state.pop("warnings", None)
+    st.session_state["report_schema_version"] = REPORT_SCHEMA_VERSION
 admin_mode = str(st.query_params.get("admin", "")) == "1"
 
 st.markdown("""
@@ -423,6 +431,8 @@ if generate_clicked:
                     reg, orders, google, bing, None, start, end, input_values,
                     targets=load_targets(), rules=load_rules(),
                 )
+                if len(reports) != 5:
+                    raise RuntimeError(f"报告生成数量异常：应生成5份，实际生成{len(reports)}份，请刷新页面后重试。")
                 st.session_state["reports"] = reports; st.session_state["warnings"] = warnings
                 status.update(label="五份周报已生成", state="complete", expanded=False)
     except Exception as exc:
