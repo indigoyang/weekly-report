@@ -44,6 +44,9 @@ st.markdown("""
 html{scroll-behavior:smooth}.stApp{background:var(--paper);color:var(--ink);font-family:'Inter','PingFang SC',sans-serif}.block-container{max-width:1480px;padding:34px 42px 80px;min-height:100vh;background:var(--paper)}
 [data-testid="stHeader"]{background:transparent}[data-testid="stToolbar"]{right:1rem}[data-testid="stSidebar"]{width:80px!important;min-width:80px!important;background:var(--paper);border-right:1px solid #1112}[data-testid="stSidebar"]>div:first-child{width:80px!important;padding:24px 0}[data-testid="stSidebarCollapseButton"],[data-testid="collapsedControl"]{display:none}
 .brand-mark{width:40px;height:40px;border-radius:50%;background:#111;color:var(--lime);display:grid;place-items:center;font-size:17px;font-weight:800;margin:0 auto 24px}.nav-link{width:40px;height:40px;display:grid;place-items:center;margin:10px auto;border-radius:50%;border:1px solid transparent;color:#9ca3af;text-decoration:none!important;font-size:17px;transition:.18s}.nav-link:hover{color:#111;background:#e5e7eb}.nav-link.active{color:#111;background:var(--lime);border-color:#111;box-shadow:2px 2px 0 #111;transform:translate(-1px,-1px)}.port-label{font-size:8px;font-weight:800;letter-spacing:1.2px;text-align:center;color:#9ca3af;margin:13px 0 2px}.port-divider{width:34px;height:1px;background:#1112;margin:15px auto}.nav-space{height:205px}.nav-hint{font-size:9px;color:#9ca3af;text-align:center;line-height:1.35;margin:0 5px}
+[data-testid="stSidebar"] .stButton{width:58px!important;margin:0 auto 14px!important}
+[data-testid="stSidebar"] .stButton>button{width:58px!important;height:58px!important;min-height:58px!important;padding:0!important;border:1px solid #111!important;border-radius:50%!important;background:#fff!important;color:#111!important;font-size:12px!important;font-weight:800!important;box-shadow:none!important}
+[data-testid="stSidebar"] .stButton>button:hover{background:#f0f0eb!important;transform:none!important;box-shadow:none!important}
 .topbar{padding:4px 0 28px;border-bottom:1px solid #1112;margin-bottom:24px}.eyebrow{font-size:11px;color:#6b7280;letter-spacing:2.2px;text-transform:uppercase;margin-bottom:9px}.topbar h1{font-family:'Noto Serif SC',serif;font-size:38px;line-height:1.2;font-weight:900;letter-spacing:-1.5px;margin:0 0 10px;color:#111}.topbar p{font-size:13px;color:#6b7280;margin:0}.steps{display:flex;align-items:center;gap:0;margin-top:28px}.step{display:flex;align-items:center;gap:8px;font-size:12px;color:#9ca3af;white-space:nowrap}.step b{width:25px;height:25px;display:grid;place-items:center;border-radius:50%;border:1px solid #9ca3af;font-size:9px}.step.done{color:#6b7280}.step.on{color:#111;font-weight:700}.step.on b{background:var(--lime);border-color:#111;color:#111}.step-line{width:48px;height:1px;background:#1113;margin:0 14px}
 .upload-head{display:flex;justify-content:space-between;align-items:flex-start;padding-bottom:13px;border-bottom:1px solid #1112;margin-bottom:18px}.upload-head h2{font-family:'Noto Serif SC',serif;font-size:21px;margin:0 0 5px;color:#111;font-weight:700}.upload-head h2:before{content:'01';font-family:'Inter',sans-serif;color:#9ca3af;font-size:12px;margin-right:10px}.upload-head p{margin:0;font-size:11px;color:#6b7280}.upload-count{font-size:10px;color:#111;padding:5px 8px;background:#f3f4f6;border:1px solid #d1d5db}
 [data-testid="stVerticalBlockBorderWrapper"]{border:1px solid #111!important;border-radius:0!important;padding:22px!important;background:#fff!important;box-shadow:none!important;margin-bottom:20px}[data-testid="stFileUploader"]{background:#fff;border:1px solid #111;border-radius:0;padding:13px 14px 7px;min-height:135px;transition:.18s}[data-testid="stFileUploader"]:hover{background:#e3f85a12}[data-testid="stFileUploader"] label{color:#111;font-weight:700;font-size:12px}[data-testid="stFileUploaderDropzone"]{min-height:64px;border:0;background:transparent;border-radius:0;padding:8px 0}[data-testid="stFileUploaderDropzone"] button{color:#111!important;background:var(--lime)!important;border:1px solid #111!important;border-radius:50%!important;width:35px!important;height:35px!important;min-width:35px!important;padding:0!important;font-size:0!important;box-shadow:none!important}[data-testid="stFileUploaderDropzone"] button:after{content:'＋';font-size:20px;color:#111;position:absolute;inset:0;display:grid;place-items:center}[data-testid="stFileUploaderDropzone"] small{font-size:9px;color:#9ca3af}
@@ -117,32 +120,19 @@ if not admin_mode:
     st.markdown("<style>.st-key-admin_settings{display:none!important}</style>", unsafe_allow_html=True)
 
 with st.sidebar:
-    admin_link = "?port=web" if admin_mode else "?port=web&admin=1#manual-data"
-    admin_title = "退出管理模式" if admin_mode else "管理设置"
-    web_active = " active" if active_port == "web" else ""
-    app_active = " active" if active_port == "app" else ""
-    web_tools = ""
-    if active_port == "web":
-        web_tools = f"""
-        <div class="port-divider"></div>
-        <a class="nav-link" href="#upload-data" title="上传数据">⇧</a>
-        <a class="nav-link" href="#manual-data" title="补充数据">＋</a>
-        <a class="nav-link" href="#report-result" title="生成结果">▦</a>
-        <a class="nav-link" href="{admin_link}" title="{admin_title}">⚙</a>
-        """
-    st.markdown(
-        f"""
-        <div class="brand-mark" title="数据自动化">A</div>
-        <div class="port-label">WEB</div>
-        <a class="nav-link{web_active}" href="?port=web" title="WEB端">W</a>
-        <div class="port-label">APP</div>
-        <a class="nav-link{app_active}" href="?port=app" title="APP端">A</a>
-        {web_tools}
-        <a class="nav-link" href="#help" title="使用说明">?</a>
-        <div class="nav-space"></div><div class="nav-hint">DATA<br>AUTOMATION</div>
-        """,
-        unsafe_allow_html=True,
-    )
+    if st.button("WEB", key="port_web", help="进入WEB数据自动化"):
+        st.query_params["port"] = "web"
+        st.rerun()
+    if st.button("APP", key="port_app", help="进入APP数据自动化"):
+        st.query_params["port"] = "app"
+        st.rerun()
+
+active_button_key = "port_web" if active_port == "web" else "port_app"
+st.markdown(
+    f"<style>.st-key-{active_button_key} button{{background:var(--lime)!important;"
+    "box-shadow:2px 2px 0 #111!important;transform:translate(-1px,-1px)!important}}</style>",
+    unsafe_allow_html=True,
+)
 
 if active_port == "app":
     st.markdown(
