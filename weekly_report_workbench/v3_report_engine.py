@@ -663,6 +663,21 @@ def _remove_metric_rows(ws, labels):
     return ws
 
 
+def _normalize_integer_percent_targets(ws):
+    """全渠道目标列统一显示整百分比，兼容旧代码生成的100.0%文本。"""
+    for row in range(1, ws.max_row + 1):
+        cell = ws.cell(row, 6)
+        value = cell.value
+        if isinstance(value, str) and value.strip().endswith("%"):
+            raw = value.strip()[:-1].replace(",", "")
+            try:
+                number = float(raw)
+            except ValueError:
+                continue
+            cell.value = f"{int(round(number))}%"
+    return ws
+
+
 def _simplify_region_main_sheet(ws):
     """地区主表只保留A:E，累计付费率指标作为无边框的表外信息。"""
     for merged in list(ws.merged_cells.ranges):
@@ -712,6 +727,7 @@ def generate_v3_reports(reg, orders, google, bing, mobile, start, end, inputs, t
         inputs.get("refund_本周",0), inputs.get("refund_上周",0), inputs.get("refund_MTD",0), monthly_all,
     )
     _remove_metric_rows(all_wb["全渠道周报"], {"WEB—SEM投放新用户ROI（D7）"})
+    _normalize_integer_percent_targets(all_wb["全渠道周报"])
 
     period_map = {"本周":(dates["this_week_start"],dates["this_week_end"]),"上周":(dates["last_week_start"],dates["last_week_end"]),"MTD":(dates["month_start"],dates["month_end"])}
     sem_data = {k:_sem_period(orders,google,bing,mobile,*v) for k,v in period_map.items()}
