@@ -42,12 +42,12 @@ st.markdown("""
 @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@700;900&family=Inter:wght@400;500;600;700&display=swap');
 *{box-sizing:border-box}:root{--paper:#f6f5f0;--surface:#fff;--ink:#111;--lime:#e3f85a;--muted:#6b7280;--line:#111;--soft:#ecebe5;--success:#dff8a8}
 html{scroll-behavior:smooth}.stApp{background:var(--paper);color:var(--ink);font-family:'Inter','PingFang SC',sans-serif}.block-container{max-width:1480px;padding:34px 42px 80px;min-height:100vh;background:var(--paper)}
-[data-testid="stHeader"]{background:transparent}[data-testid="stToolbar"]{right:1rem}[data-testid="stSidebar"]{width:260px!important;min-width:260px!important;background:var(--paper);border-right:1px solid #1112}[data-testid="stSidebar"]>div:first-child{width:260px!important;padding:42px 26px}[data-testid="stSidebarCollapseButton"],[data-testid="collapsedControl"]{display:none}
+[data-testid="stHeader"]{background:transparent}[data-testid="stToolbar"]{right:1rem}[data-testid="stSidebar"]{width:320px!important;min-width:320px!important;background:var(--paper);border-right:1px solid #1112}[data-testid="stSidebar"]>div:first-child{width:320px!important;padding:48px 30px}[data-testid="stSidebarCollapseButton"],[data-testid="collapsedControl"]{display:none}
 .brand-mark{width:46px;height:46px;border-radius:14px;background:#111;color:var(--lime);display:grid;place-items:center;font-family:'Noto Serif SC',serif;font-size:21px;font-weight:900;margin:0 auto 10px;box-shadow:3px 3px 0 var(--lime);transform:translate(-1px,-1px)}.brand-caption{text-align:center;font-size:7px;font-weight:800;letter-spacing:1.7px;color:#9ca3af;margin:0 0 25px}.nav-link{width:40px;height:40px;display:grid;place-items:center;margin:10px auto;border-radius:50%;border:1px solid transparent;color:#9ca3af;text-decoration:none!important;font-size:17px;transition:.18s}.nav-link:hover{color:#111;background:#e5e7eb}.nav-link.active{color:#111;background:var(--lime);border-color:#111;box-shadow:2px 2px 0 #111;transform:translate(-1px,-1px)}.port-label{font-size:8px;font-weight:800;letter-spacing:1.2px;text-align:center;color:#9ca3af;margin:13px 0 2px}.port-divider{width:34px;height:1px;background:#1112;margin:15px auto}.nav-space{height:205px}.nav-hint{font-size:9px;color:#9ca3af;text-align:center;line-height:1.35;margin:0 5px}
-[data-testid="stSidebar"] .sidebar-section-title{font-family:'Noto Serif SC',serif;font-size:16px;font-weight:700;letter-spacing:1px;color:#a1a7b2;margin:0 10px 24px}
+[data-testid="stSidebar"] .sidebar-section-title{font-family:'Noto Serif SC',serif;font-size:18px;font-weight:700;letter-spacing:1px;color:#a1a7b2;margin:0 10px 28px}
 [data-testid="stSidebar"] .stButton{width:100%!important;margin:0 0 14px!important}
-[data-testid="stSidebar"] .stButton>button{position:relative!important;justify-content:flex-start!important;width:100%!important;height:66px!important;min-height:66px!important;padding:0 25px!important;border:1px solid transparent!important;border-radius:18px!important;background:transparent!important;color:#747b87!important;font-size:18px!important;font-weight:800!important;box-shadow:none!important;letter-spacing:.2px!important}
-[data-testid="stSidebar"] .stButton>button p{font-size:18px!important;font-weight:800!important}
+[data-testid="stSidebar"] .stButton>button{position:relative!important;justify-content:flex-start!important;width:100%!important;max-width:none!important;height:78px!important;min-height:78px!important;padding:0 30px!important;border:1px solid transparent!important;border-radius:18px!important;background:transparent!important;color:#747b87!important;font-size:21px!important;font-weight:800!important;box-shadow:none!important;letter-spacing:.2px!important}
+[data-testid="stSidebar"] .stButton>button p{width:100%!important;text-align:left!important;font-size:21px!important;font-weight:800!important;white-space:nowrap!important}
 [data-testid="stSidebar"] .stButton>button:hover{background:#ecece7!important;color:#111!important;transform:none!important;box-shadow:none!important}
 .topbar{padding:4px 0 28px;border-bottom:1px solid #1112;margin-bottom:24px}.eyebrow{font-size:11px;color:#6b7280;letter-spacing:2.2px;text-transform:uppercase;margin-bottom:9px}.topbar h1{font-family:'Noto Serif SC',serif;font-size:38px;line-height:1.2;font-weight:900;letter-spacing:-1.5px;margin:0 0 10px;color:#111}.topbar p{font-size:13px;color:#6b7280;margin:0}.steps{display:flex;align-items:center;gap:0;margin-top:28px}.step{display:flex;align-items:center;gap:8px;font-size:12px;color:#9ca3af;white-space:nowrap}.step b{width:25px;height:25px;display:grid;place-items:center;border-radius:50%;border:1px solid #9ca3af;font-size:9px}.step.done{color:#6b7280}.step.on{color:#111;font-weight:700}.step.on b{background:var(--lime);border-color:#111;color:#111}.step-line{width:48px;height:1px;background:#1113;margin:0 14px}
 .upload-head{display:flex;justify-content:space-between;align-items:flex-start;padding-bottom:13px;border-bottom:1px solid #1112;margin-bottom:18px}.upload-head h2{font-family:'Noto Serif SC',serif;font-size:21px;margin:0 0 5px;color:#111;font-weight:700}.upload-head h2:before{content:'01';font-family:'Inter',sans-serif;color:#9ca3af;font-size:12px;margin-right:10px}.upload-head p{margin:0;font-size:11px;color:#6b7280}.upload-count{font-size:10px;color:#111;padding:5px 8px;background:#f3f4f6;border:1px solid #d1d5db}
@@ -61,8 +61,8 @@ html{scroll-behavior:smooth}.stApp{background:var(--paper);color:var(--ink);font
 /* 可读性修正版：收紧超宽屏、放大文字、修复上传按钮重叠 */
 html{font-size:17px}
 .block-container{max-width:1280px!important;padding:42px 42px 90px!important;margin:0 auto!important}
-[data-testid="stSidebar"]{width:260px!important;min-width:260px!important}
-[data-testid="stSidebar"]>div:first-child{width:260px!important;padding:42px 26px!important}
+[data-testid="stSidebar"]{width:320px!important;min-width:320px!important}
+[data-testid="stSidebar"]>div:first-child{width:320px!important;padding:48px 30px!important}
 .brand-mark{width:44px;height:44px;font-size:19px;margin-bottom:42px}
 .nav-link{width:44px;height:44px;font-size:20px;margin:16px auto}
 .nav-space{height:270px}.nav-hint{font-size:10px;color:#71717a;line-height:1.45}
@@ -126,10 +126,10 @@ with st.sidebar:
         '<div class="sidebar-section-title">生成模块</div>',
         unsafe_allow_html=True,
     )
-    if st.button("▣   Web 周报", key="port_web", help="进入Web周报生成"):
+    if st.button("▣   Web 周报", key="port_web", help="进入Web周报生成", use_container_width=True):
         st.query_params["port"] = "web"
         st.rerun()
-    if st.button("▯   App 周报", key="port_app", help="进入App周报生成"):
+    if st.button("▯   App 周报", key="port_app", help="进入App周报生成", use_container_width=True):
         st.query_params["port"] = "app"
         st.rerun()
 
@@ -137,7 +137,9 @@ active_button_key = "port_web" if active_port == "web" else "port_app"
 st.markdown(
     f"<style>.st-key-{active_button_key} button{{background:var(--lime)!important;"
     "color:#111!important;border-color:#111!important;box-shadow:6px 7px 0 #111!important;"
-    "transform:translate(-2px,-2px)!important}}</style>",
+    "transform:translate(-2px,-2px)!important}}"
+    f".st-key-{active_button_key} button:after{{content:'';position:absolute;left:-1px;top:22%;"
+    "bottom:22%;width:6px;background:#111;border-radius:0 5px 5px 0}}</style>",
     unsafe_allow_html=True,
 )
 
