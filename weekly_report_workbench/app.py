@@ -27,7 +27,7 @@ st.set_page_config(page_title="数据自动化", page_icon="A", layout="wide", i
 
 # 报告结构升级时清理当前浏览器会话里旧版本生成的结果。
 # 否则Streamlit热更新后，页面可能继续显示更新前缓存的4份报告。
-REPORT_SCHEMA_VERSION = "2026-11-09-web-app-ui-v1"
+REPORT_SCHEMA_VERSION = "2026-11-09-report-rounding-region-v2"
 if st.session_state.get("report_schema_version") != REPORT_SCHEMA_VERSION:
     st.session_state.pop("reports", None)
     st.session_state.pop("warnings", None)
@@ -212,7 +212,7 @@ with main_col:
     with st.expander("展开填写成本、流量和退款", expanded=False):
         input_values = {}
         periods = [("本周","本周"),("上周","上周"),("MTD","累计 / MTD")]
-        groups = [("commission","affiliate分佣成本"),("seo","SEO—外链成本"),("kol","KOL成本"),("pc_flow","PC流量"),("h5_flow","H5流量"),("refund","PC端退款金额")]
+        groups = [("commission","affiliate分佣成本"),("seo","SEO—外链成本"),("pc_flow","PC流量"),("h5_flow","H5流量"),("refund","PC端退款金额")]
         for prefix, title in groups:
             st.markdown(f"**{title}**")
             cols = st.columns(3)
@@ -220,7 +220,10 @@ with main_col:
                 input_values[f"{prefix}_{key}"] = col.number_input(label, min_value=0.0, value=0.0, key=f"{prefix}_{key}")
 
     with st.expander("自然来源周报补充数据", expanded=False):
-        st.caption("APP数据、达人数据与品牌词搜索量暂时没有数据库来源，按本周、上周和MTD手动填写。")
+        st.caption(
+            "APP数据、达人数据与品牌词搜索量暂时没有数据库来源，按本周、上周和MTD手动填写。"
+            "达人合作费 + 投流费会作为自然来源成本总计，只加入全渠道ROI分母，不计入表内展示的总成本。"
+        )
         natural_groups = [
             ("natural_creators", "已发布达人数量"),
             ("natural_exposure", "曝光量"),

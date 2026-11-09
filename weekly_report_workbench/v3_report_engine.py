@@ -407,10 +407,11 @@ def _natural_report(dates, metrics, monthly_targets):
         "已发布达人数量", "当周曝光", "WEB（品牌词搜索量）",
         "注册总计", "WEB自然量注册数", "APP自然量注册数",
     }
-    currency_metrics = {
+    integer_currency_metrics = {
         "CPM", "WEB自然来源新用户收入", "WEB新老用户收入（除订阅）",
-        "APP自然量收入", "成本总计", "达人合作费", "投流费",
+        "APP自然量收入",
     }
+    currency_metrics = {"成本总计", "达人合作费", "投流费"}
 
     for row, metric in row_map.items():
         values = [metrics.get(f"{metric}_本周"), metrics.get(f"{metric}_上周"), metrics.get(f"{metric}_MTD")]
@@ -427,6 +428,8 @@ def _natural_report(dates, metrics, monthly_targets):
             for col in (2, 3, 5, 6): ws.cell(row, col).number_format = "#,##0"
         if metric in currency_metrics:
             for col in (2, 3, 5, 6): ws.cell(row, col).number_format = '"$"#,##0.00'
+        if metric in integer_currency_metrics:
+            for col in (2, 3, 5, 6): ws.cell(row, col).number_format = '"$"#,##0'
         if metric == "新用户ROI":
             for col in (2, 3, 5, 6): ws.cell(row, col).number_format = "0%"
         for col in (4, 7): ws.cell(row, col).number_format = "0%"
@@ -576,12 +579,18 @@ def _member_report(dates, orders):
         .sort_values(["付费额", "订单量", "国家"], ascending=[False, False, True])
         .head(13)
     )
-    core_orders = int(top_regions["订单量"].sum())
-    # 表格按整数美元展示，因此核心地区合计也使用各明细行展示值求和，
-    # 保证用户把下面Top 13逐行相加时与合计完全一致。
     top_regions = top_regions.copy()
     top_regions["展示付费额"] = top_regions["付费额"].round().astype(int)
-    core_revenue = int(top_regions["展示付费额"].sum())
+
+    # 先生成最终写入Excel的13条明细，再直接对这些展示明细求和。
+    # 不再让“核心地区总计”和明细各走一套聚合，保证订单量、付费额严格相等。
+    detail_rows = [
+        (row["国家"], int(row["订单量"]), _member_share(int(row["订单量"]), total_orders),
+         int(row["展示付费额"]), _member_share(int(row["展示付费额"]), total_revenue))
+        for _, row in top_regions.iterrows()
+    ]
+    core_orders = sum(row[1] for row in detail_rows)
+    core_revenue = sum(row[3] for row in detail_rows)
 
     start_row = 21
     region_headers = ["全渠道", "本月MTD订单量", "MTD占比", "本月MTD付费额", "MTD占比"]
@@ -593,11 +602,6 @@ def _member_report(dates, orders):
         ("所有地区总计", total_orders, None, total_revenue, None),
         ("以下核心地区总计", core_orders, _member_share(core_orders, total_orders), core_revenue, _member_share(core_revenue, total_revenue)),
         ('"其他"地区', other_orders, _member_share(other_orders, total_orders), other_revenue, _member_share(other_revenue, total_revenue)),
-    ]
-    detail_rows = [
-        (row["国家"], int(row["订单量"]), _member_share(row["订单量"], total_orders),
-         int(row["展示付费额"]), _member_share(row["展示付费额"], total_revenue))
-        for _, row in top_regions.iterrows()
     ]
     for row_index, values in enumerate(summary_rows + detail_rows, start_row + 1):
         for col, value in enumerate(values, 1):
@@ -722,13 +726,23 @@ def generate_v3_reports(reg, orders, google, bing, mobile, start, end, inputs, t
         monthly_sem.update(current_targets.get("sem", {}))
         monthly_natural.update(current_targets.get("natural_source", {}))
 
+    # 自然来源成本总计（达人合作费 + 投流费）只参与全渠道ROI分母。
+    # 表内“总成本”仍只展示SEM + affiliate + SEO外链成本。
+    natural_metrics = _natural_metrics(reg, orders, dates, inputs)
+    natural_cost_tw = natural_metrics.get("成本总计_本周", 0) or 0
+    natural_cost_lw = natural_metrics.get("成本总计_上周", 0) or 0
+    natural_cost_mtd = natural_metrics.get("成本总计_MTD", 0) or 0
+
     all_metrics = _all_metrics(reg, orders, google, bing, dates, inputs)
     all_wb = ALL_MOD.create_report(
         dates, all_metrics,
         inputs.get("commission_本周",0), inputs.get("commission_上周",0), inputs.get("commission_MTD",0),
         inputs.get("seo_本周",0), inputs.get("seo_上周",0), inputs.get("seo_MTD",0),
-        inputs.get("kol_本周",0), inputs.get("kol_上周",0), inputs.get("kol_MTD",0),
+        0, 0, 0,
         inputs.get("refund_本周",0), inputs.get("refund_上周",0), inputs.get("refund_MTD",0), monthly_all,
+        roi_extra_cost_this_week=natural_cost_tw,
+        roi_extra_cost_last_week=natural_cost_lw,
+        roi_extra_cost_mtd=natural_cost_mtd,
     )
     _remove_metric_rows(all_wb["全渠道周报"], {"WEB—SEM投放新用户ROI（D7）"})
     _normalize_integer_percent_targets(all_wb["全渠道周报"])
@@ -769,7 +783,6 @@ def generate_v3_reports(reg, orders, google, bing, mobile, start, end, inputs, t
     }
     region_wb = REGION_MOD.fill_other_countries_sheet(region_wb, dates, other)
 
-    natural_metrics = _natural_metrics(reg, orders, dates, inputs)
     natural_wb = _natural_report(dates, natural_metrics, monthly_natural)
     member_wb = _member_report(dates, orders)
 
