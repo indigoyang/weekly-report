@@ -22,7 +22,7 @@ from target_store import (
 from rule_store import load_rules, save_rules, validate_rules
 
 
-st.set_page_config(page_title="周报—末次归因生成", page_icon="A", layout="wide", initial_sidebar_state="expanded")
+st.set_page_config(page_title="数据自动化", page_icon="A", layout="wide", initial_sidebar_state="expanded")
 admin_mode = str(st.query_params.get("admin", "")) == "1"
 
 st.markdown("""
@@ -102,7 +102,7 @@ with st.sidebar:
     admin_title = "退出管理模式" if admin_mode else "管理设置"
     st.markdown(f"""<div class="brand-mark" title="周报生成器">A</div><a class="nav-link active" href="#upload-data" title="上传数据">⇧</a><a class="nav-link" href="#manual-data" title="补充数据">＋</a><a class="nav-link" href="#report-result" title="生成结果">▦</a><a class="nav-link" href="{admin_link}" title="{admin_title}">⚙</a><a class="nav-link" href="#help" title="使用说明">?</a><div class="nav-space"></div><div class="nav-hint">WEEKLY<br>REPORT</div>""", unsafe_allow_html=True)
 
-st.markdown("""<header class="topbar"><div class="eyebrow">Weekly Report Generator</div><h1>周报—末次归因生成</h1><p>上传数据，自动完成校验、归因计算并生成五份可编辑周报</p><div class="steps"><div class="step done"><b>✓</b>选择周期</div><div class="step-line"></div><div class="step on"><b>02</b>上传数据</div><div class="step-line"></div><div class="step"><b>03</b>补充信息</div><div class="step-line"></div><div class="step"><b>04</b>生成报告</div></div></header><div id="upload-data"></div>""", unsafe_allow_html=True)
+st.markdown("""<header class="topbar"><div class="eyebrow">Weekly Report Generator</div><h1>数据自动化</h1><p>上传数据，自动完成校验、归因计算并生成五份可编辑周报</p><div class="steps"><div class="step done"><b>✓</b>选择周期</div><div class="step-line"></div><div class="step on"><b>02</b>上传数据</div><div class="step-line"></div><div class="step"><b>03</b>补充信息</div><div class="step-line"></div><div class="step"><b>04</b>生成报告</div></div></header><div id="upload-data"></div>""", unsafe_allow_html=True)
 
 today = date.today()
 default_end = today - timedelta(days=1)
@@ -445,4 +445,4 @@ if st.session_state.get("reports"):
             for filename, content in reports.items(): archive.writestr(filename, content)
         st.download_button("一键下载五份周报（ZIP）", bundle.getvalue(), f"末次归因周报_{start:%Y.%m.%d}-{end:%Y.%m.%d}.zip", "application/zip", type="primary", use_container_width=True)
 
-st.markdown('<div id="help"></div><div class="fixed-footer"><span>文件仅用于本次浏览器会话 · 刷新页面后需重新上传</span><b>WEEKLY REPORT GENERATOR · 末次归因工作台</b></div>', unsafe_allow_html=True)
+st.markdown('<div id="help"></div><div class="fixed-footer"><span>文件仅用于本次浏览器会话 · 刷新页面后需重新上传</span><b>DATA AUTOMATION · 周报工作台</b></div>', unsafe_allow_html=True)

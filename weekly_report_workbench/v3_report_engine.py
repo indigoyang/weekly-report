@@ -740,7 +740,7 @@ def generate_v3_reports(reg, orders, google, bing, mobile, start, end, inputs, t
             all_new = co[_new_user_mask(co)]
             cumulative[region].update({"all_channel_reg":len(cr),"all_channel_new_user_orders":len(all_new),"all_channel_new_user_rate":safe_div(len(all_new),len(cr))})
     region_wb = REGION_MOD.fill_report(region_wb, dates, region_sets["本周"], region_sets["上周"], region_sets["MTD"], cumulative)
-    _simplify_region_main_sheet(region_wb.active)
+    # 新版格式.xlsx 已把累计付费率放回蓝色表格区域，保留模板原有填充和边框。
     # 其他国家页固定顺序，只展示业务要求的六个地区。
     countries = REGION_MOD.OTHER_COUNTRIES
     other = {
