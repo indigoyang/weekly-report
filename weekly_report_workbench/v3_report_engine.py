@@ -577,7 +577,11 @@ def _member_report(dates, orders):
         .head(13)
     )
     core_orders = int(top_regions["订单量"].sum())
-    core_revenue = float(top_regions["付费额"].sum())
+    # 表格按整数美元展示，因此核心地区合计也使用各明细行展示值求和，
+    # 保证用户把下面Top 13逐行相加时与合计完全一致。
+    top_regions = top_regions.copy()
+    top_regions["展示付费额"] = top_regions["付费额"].round().astype(int)
+    core_revenue = int(top_regions["展示付费额"].sum())
 
     start_row = 21
     region_headers = ["全渠道", "本月MTD订单量", "MTD占比", "本月MTD付费额", "MTD占比"]
@@ -592,7 +596,7 @@ def _member_report(dates, orders):
     ]
     detail_rows = [
         (row["国家"], int(row["订单量"]), _member_share(row["订单量"], total_orders),
-         float(row["付费额"]), _member_share(row["付费额"], total_revenue))
+         int(row["展示付费额"]), _member_share(row["展示付费额"], total_revenue))
         for _, row in top_regions.iterrows()
     ]
     for row_index, values in enumerate(summary_rows + detail_rows, start_row + 1):
