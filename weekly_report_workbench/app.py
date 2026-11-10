@@ -28,7 +28,7 @@ st.set_page_config(page_title="数据自动化", page_icon="A", layout="wide", i
 
 # 报告结构升级时清理当前浏览器会话里旧版本生成的结果。
 # 否则Streamlit热更新后，页面可能继续显示更新前缓存的4份报告。
-REPORT_SCHEMA_VERSION = "2026-11-10-app-total-sheet-v5"
+REPORT_SCHEMA_VERSION = "2026-11-10-app-scroll-layout-v6"
 if st.session_state.get("report_schema_version") != REPORT_SCHEMA_VERSION:
     st.session_state.pop("reports", None)
     st.session_state.pop("warnings", None)
@@ -122,7 +122,7 @@ html{font-size:17px}
 /* 2026-11 UI定稿：按Web/App原型统一尺寸，放在最后避免被旧规则覆盖 */
 html{font-size:15px!important}
 .stApp{background:#f6f5f0!important}
-.block-container{max-width:1200px!important;padding:48px 32px 190px!important;margin:0 auto!important}
+.block-container{max-width:1200px!important;padding:48px 32px 110px!important;margin:0 auto!important}
 [data-testid="stSidebar"]{width:224px!important;min-width:224px!important;background:#f6f5f0!important}
 [data-testid="stSidebar"]>div:first-child{width:224px!important;padding:40px 20px!important}
 [data-testid="stSidebar"] .sidebar-section-title{font-family:'Inter','PingFang SC',sans-serif!important;font-size:11px!important;font-weight:800!important;letter-spacing:1.2px!important;color:#9ca3af!important;margin:0 8px 16px!important}
@@ -158,17 +158,18 @@ html{font-size:15px!important}
 [class*="st-key-clear_"] .stButton>button{min-height:30px!important;height:30px!important;background:transparent!important;border:0!important;box-shadow:none!important;color:#6b7280!important;font-size:10px!important;padding:0 8px!important}
 [class*="st-key-clear_"] .stButton>button:hover{color:#111!important;background:#ecebe5!important;transform:none!important;box-shadow:none!important}
 
-/* 原型中的固定底部暂存区 */
-.fixed-footer{position:fixed!important;left:224px!important;right:0!important;bottom:0!important;height:72px!important;margin:0!important;padding:0 max(32px,calc((100vw - 224px - 1200px)/2 + 32px))!important;background:rgba(246,245,240,.94)!important;backdrop-filter:blur(10px)!important;border-top:1px solid #1112!important;z-index:998!important;display:flex!important;align-items:center!important}
+/* 底部信息留在正常页面流中，避免遮住月度目标、生成按钮和下载区 */
+.fixed-footer{position:relative!important;left:auto!important;right:auto!important;bottom:auto!important;height:54px!important;margin:34px 0 0!important;padding:0 10px!important;background:transparent!important;backdrop-filter:none!important;border-top:1px solid #1112!important;z-index:auto!important;display:flex!important;align-items:center!important}
 .fixed-footer span{font-size:11px!important;color:#6b7280!important}.fixed-footer b{display:none!important}
-.st-key-save_web_manual,.st-key-save_app_manual{position:fixed!important;right:max(32px,calc((100vw - 224px - 1200px)/2 + 32px))!important;bottom:15px!important;width:255px!important;z-index:1000!important}
+.st-key-save_web_manual,.st-key-save_app_manual{position:static!important;right:auto!important;bottom:auto!important;width:100%!important;z-index:auto!important}
 .st-key-save_web_manual .stButton>button,.st-key-save_app_manual .stButton>button{height:42px!important;min-height:42px!important;background:#111!important;color:#e3f85a!important;border:1px solid #111!important;box-shadow:3px 3px 0 #777!important;font-size:13px!important}
 .st-key-save_web_manual .stButton>button:before,.st-key-save_app_manual .stButton>button:before{content:'⇩';font-size:16px;margin-right:8px}
+.inline-save-status{min-height:42px;display:flex;align-items:center;padding:0 14px;border:1px solid #badb88;background:#edf9e9;color:#245c47;font-size:12px;line-height:1.35}
 
 @media(max-width:900px){
-  [data-testid="stSidebar"]{display:none!important}.block-container{max-width:100%!important;padding:24px 16px 180px!important}.topbar h1{font-size:31px!important}.steps{overflow-x:auto!important}
+  [data-testid="stSidebar"]{display:none!important}.block-container{max-width:100%!important;padding:24px 16px 80px!important}.topbar h1{font-size:31px!important}.steps{overflow-x:auto!important}
   [data-testid="stVerticalBlockBorderWrapper"]{padding:15px!important;box-shadow:3px 3px 0 #111!important}[data-testid="stFileUploader"]{min-height:150px!important;padding:22px!important}
-  .fixed-footer{left:0!important;padding:0 16px!important}.fixed-footer span{max-width:48%!important}.st-key-save_web_manual,.st-key-save_app_manual{right:16px!important;width:220px!important}
+  .fixed-footer{padding:0 6px!important}.fixed-footer span{max-width:100%!important}.st-key-save_web_manual,.st-key-save_app_manual{width:100%!important}
 }
 </style>
 """, unsafe_allow_html=True)
@@ -338,11 +339,24 @@ if active_port == "app":
                     key=f"app_{manual_key}",
                 )
 
-        if st.button("暂存当前手动数据", key="save_app_manual", use_container_width=True):
+        app_save_col, app_save_status_col = st.columns([1, 2.2], gap="small")
+        with app_save_col:
+            app_saved_now = st.button(
+                "暂存当前手动数据", key="save_app_manual", use_container_width=True
+            )
+        if app_saved_now:
             st.session_state["app_manual_saved"] = deepcopy(app_manual)
-            st.success("手动数据已暂存在当前浏览器会话中。重新上传文件时不会丢失。")
-        elif st.session_state.get("app_manual_saved"):
-            st.caption("✓ 已暂存手动数据；重新上传Google或Meta文件不会清空这些数值。")
+        with app_save_status_col:
+            if app_saved_now:
+                st.markdown(
+                    '<div class="inline-save-status">✓ 已暂存到当前浏览器会话；重新上传文件不会丢失。</div>',
+                    unsafe_allow_html=True,
+                )
+            elif st.session_state.get("app_manual_saved"):
+                st.markdown(
+                    '<div class="inline-save-status">✓ 当前手动数据已暂存。</div>',
+                    unsafe_allow_html=True,
+                )
 
         app_target_defaults = {
             "APP—新老综合ROI": 1.5,
@@ -640,11 +654,24 @@ with main_col:
                     key=manual_key,
                 )
 
-    if st.button("暂存当前手动数据", key="save_web_manual", use_container_width=True):
+    web_save_col, web_save_status_col = st.columns([1, 2.2], gap="small")
+    with web_save_col:
+        web_saved_now = st.button(
+            "暂存当前手动数据", key="save_web_manual", use_container_width=True
+        )
+    if web_saved_now:
         st.session_state["web_manual_saved"] = deepcopy(input_values)
-        st.success("手动数据已暂存在当前浏览器会话中。重新上传文件时不会丢失。")
-    elif st.session_state.get("web_manual_saved"):
-        st.caption("✓ 已暂存手动数据；重新上传源文件不会清空这些数值。")
+    with web_save_status_col:
+        if web_saved_now:
+            st.markdown(
+                '<div class="inline-save-status">✓ 已暂存到当前浏览器会话；重新上传文件不会丢失。</div>',
+                unsafe_allow_html=True,
+            )
+        elif st.session_state.get("web_manual_saved"):
+            st.markdown(
+                '<div class="inline-save-status">✓ 当前手动数据已暂存。</div>',
+                unsafe_allow_html=True,
+            )
 
     with st.expander("月度目标设置（每月填写一次）", expanded=False):
         month_key = target_month_end.strftime("%Y-%m")
