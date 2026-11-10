@@ -28,10 +28,12 @@ st.set_page_config(page_title="数据自动化", page_icon="A", layout="wide", i
 
 # 报告结构升级时清理当前浏览器会话里旧版本生成的结果。
 # 否则Streamlit热更新后，页面可能继续显示更新前缓存的4份报告。
-REPORT_SCHEMA_VERSION = "2026-11-09-report-rounding-region-v2"
+REPORT_SCHEMA_VERSION = "2026-11-10-upload-manual-target-v3"
 if st.session_state.get("report_schema_version") != REPORT_SCHEMA_VERSION:
     st.session_state.pop("reports", None)
     st.session_state.pop("warnings", None)
+    st.session_state.pop("app_report", None)
+    st.session_state.pop("app_report_warnings", None)
     st.session_state["report_schema_version"] = REPORT_SCHEMA_VERSION
 admin_mode = str(st.query_params.get("admin", "")) == "1"
 active_port = str(st.query_params.get("port", "web")).lower()
@@ -181,19 +183,33 @@ if active_port == "app":
             app_upload_header = st.empty()
             app_u1, app_u2 = st.columns(2)
             with app_u1:
+                app_google_upload_version = st.session_state.get("app_google_upload_version", 0)
                 app_google_files = st.file_uploader(
                     "**APP Google消耗**  \nGoogle Ads APP投放消耗",
                     type=["xlsx", "xlsm", "csv"], accept_multiple_files=True,
-                    key="app_google_files",
+                    key=f"app_google_files_{app_google_upload_version}",
                 )
                 st.markdown(app_upload_status(app_google_files), unsafe_allow_html=True)
+                if app_google_files and st.button(
+                    "删除已上传的Google文件", key="clear_app_google", use_container_width=True
+                ):
+                    st.session_state["app_google_upload_version"] = app_google_upload_version + 1
+                    st.session_state.pop("app_report", None)
+                    st.rerun()
             with app_u2:
+                app_meta_upload_version = st.session_state.get("app_meta_upload_version", 0)
                 app_meta_files = st.file_uploader(
                     "**APP Meta消耗**  \nMeta Ads APP投放消耗",
                     type=["xlsx", "xlsm", "csv"], accept_multiple_files=True,
-                    key="app_meta_files",
+                    key=f"app_meta_files_{app_meta_upload_version}",
                 )
                 st.markdown(app_upload_status(app_meta_files), unsafe_allow_html=True)
+                if app_meta_files and st.button(
+                    "删除已上传的Meta文件", key="clear_app_meta", use_container_width=True
+                ):
+                    st.session_state["app_meta_upload_version"] = app_meta_upload_version + 1
+                    st.session_state.pop("app_report", None)
+                    st.rerun()
             app_uploaded_count = sum(bool(value) for value in (app_google_files, app_meta_files))
             app_upload_header.markdown(
                 f'<div class="upload-head"><div><h2>上传APP消耗数据</h2>'
@@ -203,14 +219,15 @@ if active_port == "app":
             )
 
         st.markdown(
-            '<div class="section-label">02 补充APP收入与ASA消耗</div>'
+            '<div class="section-label">02 补充手动数据</div>'
             '<div class="section-note">D7收入和ASA消耗暂无自动数据源，按本周、上周、MTD填写。</div>',
             unsafe_allow_html=True,
         )
         app_manual = {}
+        app_saved_manual = st.session_state.get("app_manual_saved", {})
         app_periods = (("本周", "本周"), ("上周", "上周"), ("MTD", "累计 / MTD"))
 
-        with st.expander("D7收入（手动填写）", expanded=True):
+        with st.expander("投放平台收入", expanded=True):
             for prefix, title in (
                 ("google_revenue", "Google收入（D7）"),
                 ("meta_revenue", "Meta收入（D7）"),
@@ -219,17 +236,19 @@ if active_port == "app":
                 st.markdown(f"**{title}**")
                 columns = st.columns(3)
                 for column, (period, label) in zip(columns, app_periods):
-                    app_manual[f"{prefix}_{period}"] = column.number_input(
-                        label, min_value=0.0, value=0.0,
-                        key=f"app_{prefix}_{period}",
+                    manual_key = f"{prefix}_{period}"
+                    app_manual[manual_key] = column.number_input(
+                        label, min_value=0.0, value=float(app_saved_manual.get(manual_key, 0.0)),
+                        key=f"app_{manual_key}",
                     )
 
         with st.expander("ASA消耗（手动填写）", expanded=False):
             st.markdown("**ASA总消耗**")
             columns = st.columns(3)
             for column, (period, label) in zip(columns, app_periods):
-                app_manual[f"asa_cost_{period}"] = column.number_input(
-                    label, min_value=0.0, value=0.0,
+                manual_key = f"asa_cost_{period}"
+                app_manual[manual_key] = column.number_input(
+                    label, min_value=0.0, value=float(app_saved_manual.get(manual_key, 0.0)),
                     key=f"app_asa_cost_{period}",
                 )
 
@@ -239,8 +258,9 @@ if active_port == "app":
                 st.markdown(f"**{region}收入**")
                 columns = st.columns(3)
                 for column, (period, label) in zip(columns, app_periods):
-                    app_manual[f"region_revenue_{region}_{period}"] = column.number_input(
-                        label, min_value=0.0, value=0.0,
+                    manual_key = f"region_revenue_{region}_{period}"
+                    app_manual[manual_key] = column.number_input(
+                        label, min_value=0.0, value=float(app_saved_manual.get(manual_key, 0.0)),
                         key=f"app_region_revenue_{region}_{period}",
                     )
 
@@ -250,10 +270,17 @@ if active_port == "app":
                 st.markdown(f"**{region}ASA消耗**")
                 columns = st.columns(3)
                 for column, (period, label) in zip(columns, app_periods):
-                    app_manual[f"asa_region_cost_{region}_{period}"] = column.number_input(
-                        label, min_value=0.0, value=0.0,
+                    manual_key = f"asa_region_cost_{region}_{period}"
+                    app_manual[manual_key] = column.number_input(
+                        label, min_value=0.0, value=float(app_saved_manual.get(manual_key, 0.0)),
                         key=f"app_asa_region_cost_{region}_{period}",
                     )
+
+        if st.button("暂存当前手动数据", key="save_app_manual", use_container_width=True):
+            st.session_state["app_manual_saved"] = deepcopy(app_manual)
+            st.success("手动数据已暂存在当前浏览器会话中。重新上传文件时不会丢失。")
+        elif st.session_state.get("app_manual_saved"):
+            st.caption("✓ 已暂存手动数据；重新上传Google或Meta文件不会清空这些数值。")
 
         app_target_defaults = {
             "APP—投放新用户ROI（D7）": 1.2,
@@ -275,16 +302,47 @@ if active_port == "app":
             "地区ROI_印度尼西亚": 1.0,
         }
         with st.expander("APP月度目标", expanded=False):
-            st.caption("ROI目标用小数填写，例如120%填写1.2；收入目标直接填写美元金额。")
+            st.caption(
+                "可以从Excel复制一整列目标，粘贴到下面的批量框后应用；"
+                "也可以选中目标列第一格直接粘贴。ROI目标支持120%或1.2两种格式。"
+            )
+            pasted_app_targets = st.text_area(
+                "批量粘贴目标（严格按照下方指标顺序，一行一个）",
+                key="app_targets_paste_text", height=110,
+            )
+            if st.button("应用整列目标", key="apply_app_targets_paste"):
+                lines = [line.strip() for line in pasted_app_targets.splitlines() if line.strip()]
+                if len(lines) != len(app_target_defaults):
+                    st.error(f"需要粘贴 {len(app_target_defaults)} 个目标，当前识别到 {len(lines)} 个。")
+                else:
+                    parsed = {}
+                    try:
+                        for key, raw in zip(app_target_defaults, lines):
+                            value_text = raw.split("\t")[-1].replace(",", "").replace("$", "").strip()
+                            is_percent = value_text.endswith("%")
+                            value = float(value_text.rstrip("%"))
+                            parsed[key] = value / 100 if is_percent else value
+                    except ValueError:
+                        st.error("目标列中存在无法识别的内容，请只粘贴数字、金额或百分比。")
+                    else:
+                        st.session_state["app_pasted_targets"] = parsed
+                        st.session_state["app_target_editor_version"] = (
+                            st.session_state.get("app_target_editor_version", 0) + 1
+                        )
+                        st.rerun()
+            app_target_values = {
+                **app_target_defaults,
+                **st.session_state.get("app_pasted_targets", {}),
+            }
             target_frame = pd.DataFrame(
-                [{"指标": key, "目标": value} for key, value in app_target_defaults.items()]
+                [{"指标": key, "目标": value} for key, value in app_target_values.items()]
             )
             edited_targets = st.data_editor(
                 target_frame,
                 hide_index=True,
                 disabled=["指标"],
                 use_container_width=True,
-                key="app_targets_editor",
+                key=f"app_targets_editor_{st.session_state.get('app_target_editor_version', 0)}",
                 column_config={"目标": st.column_config.NumberColumn("目标", min_value=0.0, format="%.2f")},
             )
             app_targets = {
@@ -407,28 +465,65 @@ with main_col:
         upload_header = st.empty()
         u1, u2 = st.columns(2)
         with u1:
-            reg_files = st.file_uploader("**注册数据**  \n用户注册与渠道来源", type=["xlsx","xlsm","csv"], accept_multiple_files=True)
+            reg_upload_version = st.session_state.get("reg_upload_version", 0)
+            reg_files = st.file_uploader(
+                "**注册数据**  \n用户注册与渠道来源", type=["xlsx","xlsm","csv"],
+                accept_multiple_files=True, key=f"reg_files_{reg_upload_version}"
+            )
             st.markdown(upload_status(reg_files), unsafe_allow_html=True)
-            google_files = st.file_uploader("**Google消耗**  \nGoogle Ads 投放消耗", type=["xlsx","xlsm","csv"], accept_multiple_files=True)
+            if reg_files and st.button("删除已上传的注册文件", key="clear_reg_files", use_container_width=True):
+                st.session_state["reg_upload_version"] = reg_upload_version + 1
+                st.session_state.pop("reports", None)
+                st.rerun()
+            google_upload_version = st.session_state.get("google_upload_version", 0)
+            google_files = st.file_uploader(
+                "**Google消耗**  \nGoogle Ads 投放消耗", type=["xlsx","xlsm","csv"],
+                accept_multiple_files=True, key=f"google_files_{google_upload_version}"
+            )
             st.markdown(upload_status(google_files), unsafe_allow_html=True)
+            if google_files and st.button("删除已上传的Google文件", key="clear_google_files", use_container_width=True):
+                st.session_state["google_upload_version"] = google_upload_version + 1
+                st.session_state.pop("reports", None)
+                st.rerun()
         with u2:
-            order_files = st.file_uploader("**订单数据**  \n订单及收入相关数据", type=["xlsx","xlsm","csv"], accept_multiple_files=True)
+            order_upload_version = st.session_state.get("order_upload_version", 0)
+            order_files = st.file_uploader(
+                "**订单数据**  \n订单及收入相关数据", type=["xlsx","xlsm","csv"],
+                accept_multiple_files=True, key=f"order_files_{order_upload_version}"
+            )
             st.markdown(upload_status(order_files), unsafe_allow_html=True)
-            bing_files = st.file_uploader("**Bing消耗**  \nBing Ads 投放消耗", type=["xlsx","xlsm","csv"], accept_multiple_files=True)
+            if order_files and st.button("删除已上传的订单文件", key="clear_order_files", use_container_width=True):
+                st.session_state["order_upload_version"] = order_upload_version + 1
+                st.session_state.pop("reports", None)
+                st.rerun()
+            bing_upload_version = st.session_state.get("bing_upload_version", 0)
+            bing_files = st.file_uploader(
+                "**Bing消耗**  \nBing Ads 投放消耗", type=["xlsx","xlsm","csv"],
+                accept_multiple_files=True, key=f"bing_files_{bing_upload_version}"
+            )
             st.markdown(upload_status(bing_files), unsafe_allow_html=True)
+            if bing_files and st.button("删除已上传的Bing文件", key="clear_bing_files", use_container_width=True):
+                st.session_state["bing_upload_version"] = bing_upload_version + 1
+                st.session_state.pop("reports", None)
+                st.rerun()
         uploaded_count = sum(bool(x) for x in [reg_files, order_files, google_files, bing_files])
         upload_header.markdown(f'<div class="upload-head"><div><h2>上传源数据</h2><p>上传4类数据，系统将自动完成格式检查和数据预处理</p></div><div class="upload-count">{uploaded_count} / 4 已完成</div></div>', unsafe_allow_html=True)
 
     st.markdown('<div id="manual-data"></div><div class="section-label">02 补充手动数据</div><div class="section-note">对应全渠道周报中的成本、流量和退款；没有数据时可保持为0。</div>', unsafe_allow_html=True)
     with st.expander("展开填写成本、流量和退款", expanded=False):
         input_values = {}
+        web_saved_manual = st.session_state.get("web_manual_saved", {})
         periods = [("本周","本周"),("上周","上周"),("MTD","累计 / MTD")]
         groups = [("commission","affiliate分佣成本"),("seo","SEO—外链成本"),("pc_flow","PC流量"),("h5_flow","H5流量"),("refund","PC端退款金额")]
         for prefix, title in groups:
             st.markdown(f"**{title}**")
             cols = st.columns(3)
             for col, (key, label) in zip(cols, periods):
-                input_values[f"{prefix}_{key}"] = col.number_input(label, min_value=0.0, value=0.0, key=f"{prefix}_{key}")
+                manual_key = f"{prefix}_{key}"
+                input_values[manual_key] = col.number_input(
+                    label, min_value=0.0, value=float(web_saved_manual.get(manual_key, 0.0)),
+                    key=manual_key,
+                )
 
     with st.expander("自然来源周报补充数据", expanded=False):
         st.caption(
@@ -448,10 +543,17 @@ with main_col:
             st.markdown(f"**{title}**")
             cols = st.columns(3)
             for col, (period_key, label) in zip(cols, periods):
-                input_values[f"{prefix}_{period_key}"] = col.number_input(
-                    label, min_value=0.0, value=0.0,
-                    key=f"{prefix}_{period_key}",
+                manual_key = f"{prefix}_{period_key}"
+                input_values[manual_key] = col.number_input(
+                    label, min_value=0.0, value=float(web_saved_manual.get(manual_key, 0.0)),
+                    key=manual_key,
                 )
+
+    if st.button("暂存当前手动数据", key="save_web_manual", use_container_width=True):
+        st.session_state["web_manual_saved"] = deepcopy(input_values)
+        st.success("手动数据已暂存在当前浏览器会话中。重新上传文件时不会丢失。")
+    elif st.session_state.get("web_manual_saved"):
+        st.caption("✓ 已暂存手动数据；重新上传源文件不会清空这些数值。")
 
     with st.expander("月度目标设置（每月填写一次）", expanded=False):
         month_key = target_month_end.strftime("%Y-%m")
@@ -467,10 +569,40 @@ with main_col:
 
         def target_editor(tab, rows_config, values, key):
             with tab:
+                metric_order = [metric_key for metric_key, _ in rows_config if metric_key is not None]
                 st.caption(
-                    f"共 {sum(metric_key is not None for metric_key, _ in rows_config)} 个可填写目标；"
-                    "蓝灰色分区行只用于区分模块，不需要填写，也不会保存目标。"
+                    f"共 {len(metric_order)} 个可填写目标；蓝灰色分区行只用于区分模块。"
+                    "可从Excel复制一整列，粘贴到批量框后一次应用。"
                 )
+                paste_text = st.text_area(
+                    "批量粘贴目标（严格按照下方指标顺序，一行一个）",
+                    key=f"{key}_paste_text", height=95,
+                )
+                if st.button("应用整列目标", key=f"{key}_apply_paste"):
+                    lines = [line.strip() for line in paste_text.splitlines() if line.strip()]
+                    if len(lines) != len(metric_order):
+                        st.error(f"需要粘贴 {len(metric_order)} 个目标，当前识别到 {len(lines)} 个。")
+                    else:
+                        parsed = {}
+                        try:
+                            for metric_key, raw in zip(metric_order, lines):
+                                value_text = (
+                                    raw.split("\t")[-1].replace(",", "").replace("$", "")
+                                    .replace("%", "").strip()
+                                )
+                                parsed[metric_key] = float(value_text)
+                        except ValueError:
+                            st.error("目标列中存在无法识别的内容，请只粘贴数字、金额或百分比。")
+                        else:
+                            st.session_state[f"{key}_pasted_values"] = parsed
+                            st.session_state[f"{key}_editor_version"] = (
+                                st.session_state.get(f"{key}_editor_version", 0) + 1
+                            )
+                            st.rerun()
+                editor_values = {
+                    **values,
+                    **st.session_state.get(f"{key}_pasted_values", {}),
+                }
                 edited_frames = []
                 current_rows = []
                 section_no = 0
@@ -482,7 +614,7 @@ with main_col:
                         {
                             "_目标键": metric_key,
                             "指标": label,
-                            "目标": values.get(metric_key),
+                            "目标": editor_values.get(metric_key),
                         }
                         for metric_key, label in metric_rows
                     ])
@@ -499,7 +631,7 @@ with main_col:
                         hide_index=True,
                         use_container_width=True,
                         height=min(360, 38 + 36 * len(metric_rows)),
-                        key=editor_key,
+                        key=f"{editor_key}_{st.session_state.get(f'{key}_editor_version', 0)}",
                     ))
 
                 for metric_key, label in rows_config:

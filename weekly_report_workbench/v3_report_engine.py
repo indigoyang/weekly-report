@@ -440,13 +440,9 @@ def _natural_report(dates, metrics, monthly_targets):
     ws["E16"] = _natural_ratio(metrics["达人合作费_MTD"], metrics["投流费_MTD"])
     ws["F16"] = "7:3"
     ws["G16"] = "/"
-    ws["H8"] = "WEB注册端口，末次来源类型不等于SEM"
-    ws["H10"] = "WEB自然渠道末次归因且注册转化周期=0的收入"
-    ws["H11"] = "WEB自然渠道末次归因的新老用户收入，排除Auto_Renewal"
-    ws["H12"] = "APP自然量新用户收入，手动填写"
-    ws["H13"] = "成本总计：达人合作费 + 投流费"
-    ws["H16"] = "实际费用按总计10折算；目标固定为7:3"
-    ws["H17"] = "（WEB自然来源新用户收入 + APP自然量收入）÷ 成本总计"
+    # H列只用于模板维护时记录统计口径，最终下载表不展示。
+    if ws.max_column >= 8:
+        ws.delete_cols(8, ws.max_column - 7)
     ws.title = "自然来源周报"
     return wb
 

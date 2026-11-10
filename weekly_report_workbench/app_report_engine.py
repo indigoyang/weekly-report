@@ -268,6 +268,10 @@ def generate_app_report(
         for column in (4, 7):
             sheet.cell(row, column).number_format = "0%"
 
+    # 模板H列是内部统计口径说明，不属于最终对外报表。
+    if sheet.max_column >= 8:
+        sheet.delete_cols(8, sheet.max_column - 7)
+
     output = BytesIO()
     workbook.save(output)
     filename = f"APP投放营收_{start:%Y.%m.%d}-{end:%Y.%m.%d}.xlsx"
