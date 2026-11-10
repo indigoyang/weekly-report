@@ -89,7 +89,9 @@ def _rename_first(frame: pd.DataFrame, aliases: dict[str, tuple[str, ...]]) -> p
     return result
 
 
-def prepare_app_costs(google: pd.DataFrame, meta: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame, list[str]]:
+def prepare_app_costs(
+    google: pd.DataFrame, meta: pd.DataFrame, asa: pd.DataFrame
+) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, list[str]]:
     warnings: list[str] = []
     google = _rename_first(
         google,
@@ -107,7 +109,15 @@ def prepare_app_costs(google: pd.DataFrame, meta: pd.DataFrame) -> tuple[pd.Data
             "cost": ("已花费金额 (USD)", "花费", "Spend", "Amount spent (USD)"),
         },
     )
-    for name, frame in (("Google", google), ("Meta", meta)):
+    asa = _rename_first(
+        asa,
+        {
+            "date": ("日期", "Date", "Day"),
+            "region": ("国家或地区", "国家/地区", "Country or Region"),
+            "cost": ("支出", "花费", "Spend"),
+        },
+    )
+    for name, frame in (("Google", google), ("Meta", meta), ("ASA", asa)):
         missing = [column for column in ("date", "region", "cost") if column not in frame.columns]
         if missing:
             raise ValueError(f"{name}消耗数据缺少字段：{', '.join(missing)}")
@@ -126,11 +136,21 @@ def prepare_app_costs(google: pd.DataFrame, meta: pd.DataFrame) -> tuple[pd.Data
         meta["region"].fillna("").astype(str).str.strip().str.upper().map(META_REGION_MAP).fillna("其他")
     )
 
+    asa["date"] = pd.to_datetime(asa["date"], errors="coerce")
+    asa["cost"] = pd.to_numeric(asa["cost"], errors="coerce").fillna(0.0)
+    asa["region_group"] = (
+        asa["region"].fillna("").astype(str).str.strip().map(
+            lambda value: GOOGLE_REGION_MAP.get(value, GOOGLE_REGION_MAP.get(value.lower(), "其他"))
+        )
+    )
+
     if google["date"].isna().any():
         warnings.append(f"Google有 {int(google['date'].isna().sum())} 行日期无法识别，已忽略。")
     if meta["date"].isna().any():
         warnings.append(f"Meta有 {int(meta['date'].isna().sum())} 行日期无法识别，已忽略。")
-    return google, meta, warnings
+    if asa["date"].isna().any():
+        warnings.append(f"ASA有 {int(asa['date'].isna().sum())} 行日期无法识别，已忽略。")
+    return google, meta, asa, warnings
 
 
 def _period_ranges(start: date, end: date) -> dict[str, tuple[date, date]]:
@@ -160,6 +180,7 @@ def _change(current: float, previous: float) -> float:
 def generate_app_report(
     google: pd.DataFrame,
     meta: pd.DataFrame,
+    asa: pd.DataFrame,
     start: date,
     end: date,
     manual: dict[str, float],
@@ -170,7 +191,7 @@ def generate_app_report(
     if not APP_TEMPLATE.exists():
         raise FileNotFoundError(f"找不到APP投放模板：{APP_TEMPLATE}")
 
-    google, meta, warnings = prepare_app_costs(google, meta)
+    google, meta, asa, warnings = prepare_app_costs(google, meta, asa)
     ranges = _period_ranges(start, end)
     values: dict[str, dict[str, float]] = {}
     cost_summary: dict[str, dict[str, float]] = {}
@@ -178,7 +199,7 @@ def generate_app_report(
     for period, (period_start, period_end) in ranges.items():
         google_cost = _sum_cost(google, period_start, period_end)
         meta_cost = _sum_cost(meta, period_start, period_end)
-        asa_cost = float(manual.get(f"asa_cost_{period}", 0.0))
+        asa_cost = _sum_cost(asa, period_start, period_end)
         google_revenue = float(manual.get(f"google_revenue_{period}", 0.0))
         meta_revenue = float(manual.get(f"meta_revenue_{period}", 0.0))
         asa_revenue = float(manual.get(f"asa_revenue_{period}", 0.0))
@@ -210,7 +231,7 @@ def generate_app_report(
             region_cost = (
                 _sum_cost(google, period_start, period_end, region)
                 + _sum_cost(meta, period_start, period_end, region)
-                + float(manual.get(f"asa_region_cost_{region}_{period}", 0.0))
+                + _sum_cost(asa, period_start, period_end, region)
             )
             values[period][f"地区ROI_{region}"] = _safe_div(revenue, region_cost)
         values[period]["地区收入_其他"] = total_revenue - region_revenue_total

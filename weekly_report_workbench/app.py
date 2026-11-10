@@ -28,7 +28,7 @@ st.set_page_config(page_title="数据自动化", page_icon="A", layout="wide", i
 
 # 报告结构升级时清理当前浏览器会话里旧版本生成的结果。
 # 否则Streamlit热更新后，页面可能继续显示更新前缓存的4份报告。
-REPORT_SCHEMA_VERSION = "2026-11-10-upload-manual-target-v3"
+REPORT_SCHEMA_VERSION = "2026-11-10-app-asa-upload-v4"
 if st.session_state.get("report_schema_version") != REPORT_SCHEMA_VERSION:
     st.session_state.pop("reports", None)
     st.session_state.pop("warnings", None)
@@ -152,7 +152,7 @@ if active_port == "app":
         <header class="topbar">
           <div class="eyebrow">APP Report Workbench</div>
           <h1>APP数据自动化</h1>
-          <p>上传Google与Meta消耗，补充ASA消耗和D7收入，生成APP投放营收表</p>
+          <p>上传Google、Meta与ASA消耗，补充投放平台收入，生成APP投放营收表</p>
           <div class="steps">
             <div class="step done"><b>✓</b>选择周期</div><div class="step-line"></div>
             <div class="step on"><b>02</b>上传消耗</div><div class="step-line"></div>
@@ -181,7 +181,7 @@ if active_port == "app":
     with app_main:
         with st.container(border=True):
             app_upload_header = st.empty()
-            app_u1, app_u2 = st.columns(2)
+            app_u1, app_u2, app_u3 = st.columns(3)
             with app_u1:
                 app_google_upload_version = st.session_state.get("app_google_upload_version", 0)
                 app_google_files = st.file_uploader(
@@ -210,17 +210,33 @@ if active_port == "app":
                     st.session_state["app_meta_upload_version"] = app_meta_upload_version + 1
                     st.session_state.pop("app_report", None)
                     st.rerun()
-            app_uploaded_count = sum(bool(value) for value in (app_google_files, app_meta_files))
+            with app_u3:
+                app_asa_upload_version = st.session_state.get("app_asa_upload_version", 0)
+                app_asa_files = st.file_uploader(
+                    "**APP ASA消耗**  \nASA分地区分天消耗",
+                    type=["xlsx", "xlsm", "csv"], accept_multiple_files=True,
+                    key=f"app_asa_files_{app_asa_upload_version}",
+                )
+                st.markdown(app_upload_status(app_asa_files), unsafe_allow_html=True)
+                if app_asa_files and st.button(
+                    "删除已上传的ASA文件", key="clear_app_asa", use_container_width=True
+                ):
+                    st.session_state["app_asa_upload_version"] = app_asa_upload_version + 1
+                    st.session_state.pop("app_report", None)
+                    st.rerun()
+            app_uploaded_count = sum(
+                bool(value) for value in (app_google_files, app_meta_files, app_asa_files)
+            )
             app_upload_header.markdown(
                 f'<div class="upload-head"><div><h2>上传APP消耗数据</h2>'
-                f'<p>Google与Meta自动汇总；ASA消耗在下方手动填写</p></div>'
-                f'<div class="upload-count">{app_uploaded_count} / 2 已完成</div></div>',
+                f'<p>Google、Meta与ASA均按日期和地区自动汇总</p></div>'
+                f'<div class="upload-count">{app_uploaded_count} / 3 已完成</div></div>',
                 unsafe_allow_html=True,
             )
 
         st.markdown(
             '<div class="section-label">02 补充手动数据</div>'
-            '<div class="section-note">D7收入和ASA消耗暂无自动数据源，按本周、上周、MTD填写。</div>',
+            '<div class="section-note">投放平台收入暂无自动数据源，按本周、上周、MTD填写。</div>',
             unsafe_allow_html=True,
         )
         app_manual = {}
@@ -242,16 +258,6 @@ if active_port == "app":
                         key=f"app_{manual_key}",
                     )
 
-        with st.expander("ASA消耗（手动填写）", expanded=False):
-            st.markdown("**ASA总消耗**")
-            columns = st.columns(3)
-            for column, (period, label) in zip(columns, app_periods):
-                manual_key = f"asa_cost_{period}"
-                app_manual[manual_key] = column.number_input(
-                    label, min_value=0.0, value=float(app_saved_manual.get(manual_key, 0.0)),
-                    key=f"app_asa_cost_{period}",
-                )
-
         with st.expander("地区买量收入（手动填写）", expanded=False):
             st.caption("填写台湾、韩国、印度、印度尼西亚的Google + Meta + ASA收入合计；其他地区由总收入减去这四个地区自动得到。")
             for region in ("台湾", "韩国", "印度", "印度尼西亚"):
@@ -262,18 +268,6 @@ if active_port == "app":
                     app_manual[manual_key] = column.number_input(
                         label, min_value=0.0, value=float(app_saved_manual.get(manual_key, 0.0)),
                         key=f"app_region_revenue_{region}_{period}",
-                    )
-
-        with st.expander("地区ASA消耗（手动填写）", expanded=False):
-            st.caption("Google和Meta地区消耗会从上传文件自动统计，这里只补充各地区ASA消耗。")
-            for region in ("台湾", "韩国", "印度", "印度尼西亚"):
-                st.markdown(f"**{region}ASA消耗**")
-                columns = st.columns(3)
-                for column, (period, label) in zip(columns, app_periods):
-                    manual_key = f"asa_region_cost_{region}_{period}"
-                    app_manual[manual_key] = column.number_input(
-                        label, min_value=0.0, value=float(app_saved_manual.get(manual_key, 0.0)),
-                        key=f"app_asa_region_cost_{region}_{period}",
                     )
 
         if st.button("暂存当前手动数据", key="save_app_manual", use_container_width=True):
@@ -358,8 +352,13 @@ if active_port == "app":
         st.markdown('</div>', unsafe_allow_html=True)
 
         app_completed = 1 + app_uploaded_count
-        app_readiness = int(app_completed / 3 * 100)
-        app_tasks = (("报告周期", True), ("Google消耗", bool(app_google_files)), ("Meta消耗", bool(app_meta_files)))
+        app_readiness = int(app_completed / 4 * 100)
+        app_tasks = (
+            ("报告周期", True),
+            ("Google消耗", bool(app_google_files)),
+            ("Meta消耗", bool(app_meta_files)),
+            ("ASA消耗", bool(app_asa_files)),
+        )
         app_tasks_html = "".join(
             f'<div class="task"><b>{"✓" if done else "○"} {name}</b>'
             f'<span class="{"done" if done else ""}">{"已完成" if done else "待上传"}</span></div>'
@@ -375,14 +374,14 @@ if active_port == "app":
         )
         st.markdown(
             '<div class="panel"><div class="panel-title">本次输出<span>APP首张表</span></div>'
-            '<div class="timeline"><div class="event"><b>自动汇总消耗</b><span>Google / Meta按周期和地区统计</span></div>'
-            '<div class="event"><b>补充手动数据</b><span>ASA消耗与D7收入</span></div>'
+            '<div class="timeline"><div class="event"><b>自动汇总消耗</b><span>Google / Meta / ASA按周期和地区统计</span></div>'
+            '<div class="event"><b>补充手动数据</b><span>投放平台D7收入</span></div>'
             '<div class="event"><b>生成Excel</b><span>沿用APP投放表格格式</span></div></div></div>',
             unsafe_allow_html=True,
         )
-        app_ready = all((app_google_files, app_meta_files)) and app_start <= app_end
+        app_ready = all((app_google_files, app_meta_files, app_asa_files)) and app_start <= app_end
         app_generate = st.button(
-            "✦ 生成APP投放表" if app_ready else "请先上传Google和Meta消耗",
+            "✦ 生成APP投放表" if app_ready else "请先上传Google、Meta和ASA消耗",
             type="primary", disabled=not app_ready, use_container_width=True,
             key="app_generate",
         )
@@ -399,8 +398,11 @@ if active_port == "app":
                     st.write(f"Google消耗：{len(app_google):,} 行")
                     app_meta = read_app_uploads(app_meta_files, "meta")
                     st.write(f"Meta消耗：{len(app_meta):,} 行")
+                    app_asa = read_app_uploads(app_asa_files, "asa")
+                    st.write(f"ASA消耗：{len(app_asa):,} 行")
                     filename, content, warnings, costs = generate_app_report(
-                        app_google, app_meta, app_start, app_end, app_manual, app_targets
+                        app_google, app_meta, app_asa,
+                        app_start, app_end, app_manual, app_targets
                     )
                     st.session_state["app_report"] = (filename, content)
                     st.session_state["app_report_warnings"] = warnings
