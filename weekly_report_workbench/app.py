@@ -122,7 +122,7 @@ html{font-size:17px}
 /* 2026-11 UI定稿：按Web/App原型统一尺寸，放在最后避免被旧规则覆盖 */
 html{font-size:15px!important}
 .stApp{background:#f6f5f0!important}
-.block-container{max-width:1200px!important;padding:48px 32px 112px!important;margin:0 auto!important}
+.block-container{max-width:1200px!important;padding:48px 32px 190px!important;margin:0 auto!important}
 [data-testid="stSidebar"]{width:224px!important;min-width:224px!important;background:#f6f5f0!important}
 [data-testid="stSidebar"]>div:first-child{width:224px!important;padding:40px 20px!important}
 [data-testid="stSidebar"] .sidebar-section-title{font-family:'Inter','PingFang SC',sans-serif!important;font-size:11px!important;font-weight:800!important;letter-spacing:1.2px!important;color:#9ca3af!important;margin:0 8px 16px!important}
@@ -166,7 +166,7 @@ html{font-size:15px!important}
 .st-key-save_web_manual .stButton>button:before,.st-key-save_app_manual .stButton>button:before{content:'⇩';font-size:16px;margin-right:8px}
 
 @media(max-width:900px){
-  [data-testid="stSidebar"]{display:none!important}.block-container{max-width:100%!important;padding:24px 16px 100px!important}.topbar h1{font-size:31px!important}.steps{overflow-x:auto!important}
+  [data-testid="stSidebar"]{display:none!important}.block-container{max-width:100%!important;padding:24px 16px 180px!important}.topbar h1{font-size:31px!important}.steps{overflow-x:auto!important}
   [data-testid="stVerticalBlockBorderWrapper"]{padding:15px!important;box-shadow:3px 3px 0 #111!important}[data-testid="stFileUploader"]{min-height:150px!important;padding:22px!important}
   .fixed-footer{left:0!important;padding:0 16px!important}.fixed-footer span{max-width:48%!important}.st-key-save_web_manual,.st-key-save_app_manual{right:16px!important;width:220px!important}
 }
@@ -181,10 +181,10 @@ with st.sidebar:
         '<div class="sidebar-section-title">生成模块</div>',
         unsafe_allow_html=True,
     )
-    if st.button("▣   Web 周报", key="port_web", help="进入Web周报生成", use_container_width=True):
+    if st.button("🖥️  Web 周报", key="port_web", help="进入Web周报生成", use_container_width=True):
         st.query_params["port"] = "web"
         st.rerun()
-    if st.button("▯   App 周报", key="port_app", help="进入App周报生成", use_container_width=True):
+    if st.button("📱  App 周报", key="port_app", help="进入App周报生成", use_container_width=True):
         st.query_params["port"] = "app"
         st.rerun()
 
