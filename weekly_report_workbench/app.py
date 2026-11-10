@@ -28,7 +28,7 @@ st.set_page_config(page_title="数据自动化", page_icon="A", layout="wide", i
 
 # 报告结构升级时清理当前浏览器会话里旧版本生成的结果。
 # 否则Streamlit热更新后，页面可能继续显示更新前缓存的4份报告。
-REPORT_SCHEMA_VERSION = "2026-11-10-app-scroll-layout-v6"
+REPORT_SCHEMA_VERSION = "2026-11-10-web-scroll-layout-v7"
 if st.session_state.get("report_schema_version") != REPORT_SCHEMA_VERSION:
     st.session_state.pop("reports", None)
     st.session_state.pop("warnings", None)
@@ -165,11 +165,13 @@ html{font-size:15px!important}
 .st-key-save_web_manual .stButton>button,.st-key-save_app_manual .stButton>button{height:42px!important;min-height:42px!important;background:#111!important;color:#e3f85a!important;border:1px solid #111!important;box-shadow:3px 3px 0 #777!important;font-size:13px!important}
 .st-key-save_web_manual .stButton>button:before,.st-key-save_app_manual .stButton>button:before{content:'⇩';font-size:16px;margin-right:8px}
 .inline-save-status{position:fixed;right:max(307px,calc((100vw - 224px - 1200px)/2 + 307px));bottom:15px;width:390px;height:42px;z-index:1000;display:flex;align-items:center;padding:0 14px;border:1px solid #badb88;background:#edf9e9;color:#245c47;font-size:12px;line-height:1.35}
+/* 右侧生成按钮随页面保持在固定栏上方，长表单下也能随时操作 */
+.st-key-web_generate,.st-key-app_generate{position:sticky!important;bottom:88px!important;z-index:900!important;background:#f6f5f0!important;padding:8px 0 3px!important}
 
 @media(max-width:900px){
   [data-testid="stSidebar"]{display:none!important}.block-container{max-width:100%!important;padding:24px 16px 165px!important}.topbar h1{font-size:31px!important}.steps{overflow-x:auto!important}
   [data-testid="stVerticalBlockBorderWrapper"]{padding:15px!important;box-shadow:3px 3px 0 #111!important}[data-testid="stFileUploader"]{min-height:150px!important;padding:22px!important}
-  .fixed-footer{left:0!important;padding:0 16px!important}.fixed-footer span{display:none!important}.st-key-save_web_manual,.st-key-save_app_manual{right:16px!important;width:210px!important}.inline-save-status{display:none!important}
+  .fixed-footer{left:0!important;padding:0 16px!important}.fixed-footer span{display:none!important}.st-key-save_web_manual,.st-key-save_app_manual{right:16px!important;width:210px!important}.inline-save-status{display:none!important}.st-key-web_generate,.st-key-app_generate{bottom:84px!important}
 }
 </style>
 """, unsafe_allow_html=True)
@@ -655,25 +657,6 @@ with main_col:
                     key=manual_key,
                 )
 
-    web_save_col, web_save_status_col = st.columns([1, 2.2], gap="small")
-    with web_save_col:
-        web_saved_now = st.button(
-            "暂存当前手动数据", key="save_web_manual", use_container_width=True
-        )
-    if web_saved_now:
-        st.session_state["web_manual_saved"] = deepcopy(input_values)
-    with web_save_status_col:
-        if web_saved_now:
-            st.markdown(
-                '<div class="inline-save-status">✓ 已暂存到当前浏览器会话；重新上传文件不会丢失。</div>',
-                unsafe_allow_html=True,
-            )
-        elif st.session_state.get("web_manual_saved"):
-            st.markdown(
-                '<div class="inline-save-status">✓ 当前手动数据已暂存。</div>',
-                unsafe_allow_html=True,
-            )
-
     with st.expander("月度目标设置（每月填写一次）", expanded=False):
         month_key = target_month_end.strftime("%Y-%m")
         all_targets = load_targets()
@@ -806,6 +789,26 @@ with main_col:
                 st.success(f"{month_key}目标已保存，之后会默认使用。")
             except Exception as exc:
                 st.error(str(exc))
+
+    # 所有Web手动数据与月度目标填写完成后，再统一暂存。
+    web_save_col, web_save_status_col = st.columns([1, 2.2], gap="small")
+    with web_save_col:
+        web_saved_now = st.button(
+            "暂存当前手动数据", key="save_web_manual", use_container_width=True
+        )
+    if web_saved_now:
+        st.session_state["web_manual_saved"] = deepcopy(input_values)
+    with web_save_status_col:
+        if web_saved_now:
+            st.markdown(
+                '<div class="inline-save-status">✓ 已暂存到当前浏览器会话；重新上传文件不会丢失。</div>',
+                unsafe_allow_html=True,
+            )
+        elif st.session_state.get("web_manual_saved"):
+            st.markdown(
+                '<div class="inline-save-status">✓ 当前手动数据已暂存。</div>',
+                unsafe_allow_html=True,
+            )
 
     admin_settings = st.container(key="admin_settings")
     with admin_settings.expander("统计规则设置（口径变更时修改）", expanded=False):
@@ -948,7 +951,11 @@ with side_col:
     st.markdown(f'<div class="panel"><div class="panel-title">报告准备度<span>{readiness}%</span></div><div class="mini-metrics"><div class="mini-metric"><strong>{readiness}%</strong><small>当前进度</small></div><div class="mini-metric"><strong>{completed} / 5</strong><small>已完成项目</small></div></div><div class="progress-track"><i style="width:{readiness}%"></i></div><div style="height:10px"></div>{tasks_html}</div>', unsafe_allow_html=True)
     st.markdown('<div class="panel"><div class="panel-title">自动化流程<span>1–3分钟</span></div><div class="timeline"><div class="event"><b>数据文件检查</b><span>上传后自动校验必要字段</span></div><div class="event"><b>字段自动识别</b><span>兼容Google与Bing中文字段</span></div><div class="event"><b>报告生成</b><span>输出全渠道 / SEM / SEM分地区 / 自然来源 / 会员类型</span></div></div></div>', unsafe_allow_html=True)
     ready = all([reg_files, order_files, google_files, bing_files]) and start <= end
-    generate_clicked = st.button("✦ 开始生成报告" if ready else "请先上传全部必要数据", type="primary", disabled=not ready, use_container_width=True)
+    generate_clicked = st.button(
+        "✦ 开始生成报告" if ready else "请先上传全部必要数据",
+        type="primary", disabled=not ready, use_container_width=True,
+        key="web_generate",
+    )
 
 if start > end:
     with side_col: st.error("开始日期不能晚于结束日期。")
