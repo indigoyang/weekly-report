@@ -339,25 +339,6 @@ if active_port == "app":
                     key=f"app_{manual_key}",
                 )
 
-        app_save_col, app_save_status_col = st.columns([1, 2.2], gap="small")
-        with app_save_col:
-            app_saved_now = st.button(
-                "暂存当前手动数据", key="save_app_manual", use_container_width=True
-            )
-        if app_saved_now:
-            st.session_state["app_manual_saved"] = deepcopy(app_manual)
-        with app_save_status_col:
-            if app_saved_now:
-                st.markdown(
-                    '<div class="inline-save-status">✓ 已暂存到当前浏览器会话；重新上传文件不会丢失。</div>',
-                    unsafe_allow_html=True,
-                )
-            elif st.session_state.get("app_manual_saved"):
-                st.markdown(
-                    '<div class="inline-save-status">✓ 当前手动数据已暂存。</div>',
-                    unsafe_allow_html=True,
-                )
-
         app_target_defaults = {
             "APP—新老综合ROI": 1.5,
             "APP—新用户综合ROI（D0）": 1.2,
@@ -435,6 +416,26 @@ if active_port == "app":
                 str(row["指标"]): float(row["目标"] or 0.0)
                 for row in edited_targets.to_dict("records")
             }
+
+        # 所有手动数据与月度目标填写完成后，再统一暂存。
+        app_save_col, app_save_status_col = st.columns([1, 2.2], gap="small")
+        with app_save_col:
+            app_saved_now = st.button(
+                "暂存当前手动数据", key="save_app_manual", use_container_width=True
+            )
+        if app_saved_now:
+            st.session_state["app_manual_saved"] = deepcopy(app_manual)
+        with app_save_status_col:
+            if app_saved_now:
+                st.markdown(
+                    '<div class="inline-save-status">✓ 已暂存到当前浏览器会话；重新上传文件不会丢失。</div>',
+                    unsafe_allow_html=True,
+                )
+            elif st.session_state.get("app_manual_saved"):
+                st.markdown(
+                    '<div class="inline-save-status">✓ 当前手动数据已暂存。</div>',
+                    unsafe_allow_html=True,
+                )
 
     with app_side:
         st.markdown('<div class="panel"><div class="panel-title">APP报告周期<span>自动保存</span></div>', unsafe_allow_html=True)
