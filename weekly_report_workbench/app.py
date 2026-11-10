@@ -118,6 +118,58 @@ html{font-size:17px}
 .file-status:not(.ok){display:none!important}.file-status.ok{margin:-8px 0 16px!important;font-size:12px!important;line-height:1.45!important;overflow-wrap:anywhere!important}.file-status.ok span{display:block;margin-top:3px;color:#46501f;font-size:10px;font-weight:500}
 .app-shell{background:#fff;border:1px solid #111;padding:34px;margin-top:8px}.app-shell h2{font-family:'Noto Serif SC',serif;font-size:28px;margin:0 0 8px}.app-shell>p{color:#6b7280;font-size:14px;margin:0 0 28px}.app-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}.app-card{min-height:150px;border:1px solid #111;padding:24px;position:relative;background:#fafafa}.app-card b{display:block;font-family:'Noto Serif SC',serif;font-size:20px;margin-bottom:10px}.app-card span{font-size:12px;color:#6b7280}.app-card i{position:absolute;right:18px;top:18px;font-style:normal;font-size:10px;border:1px solid #111;padding:4px 7px;background:var(--lime)}
 @media(max-width:900px){[data-testid="stFileUploader"]{min-height:180px!important;padding:25px 22px!important}[data-testid="stFileUploader"] label strong{font-size:19px!important}[data-testid="stFileUploader"]:after{left:22px;bottom:24px;font-size:11px}[data-testid="stFileUploaderDropzone"]{right:20px!important;top:23px!important;width:50px!important;height:50px!important;min-height:50px!important}[data-testid="stFileUploaderDropzone"] button{width:50px!important;min-width:50px!important;height:50px!important}}
+
+/* 2026-11 UI定稿：按Web/App原型统一尺寸，放在最后避免被旧规则覆盖 */
+html{font-size:15px!important}
+.stApp{background:#f6f5f0!important}
+.block-container{max-width:1200px!important;padding:48px 32px 112px!important;margin:0 auto!important}
+[data-testid="stSidebar"]{width:224px!important;min-width:224px!important;background:#f6f5f0!important}
+[data-testid="stSidebar"]>div:first-child{width:224px!important;padding:40px 20px!important}
+[data-testid="stSidebar"] .sidebar-section-title{font-family:'Inter','PingFang SC',sans-serif!important;font-size:11px!important;font-weight:800!important;letter-spacing:1.2px!important;color:#9ca3af!important;margin:0 8px 16px!important}
+[data-testid="stSidebar"] .stButton{margin:0 0 12px!important}
+[data-testid="stSidebar"] .stButton>button{height:52px!important;min-height:52px!important;padding:0 16px!important;border-radius:8px!important;font-size:15px!important;font-weight:700!important}
+[data-testid="stSidebar"] .stButton>button p{font-size:15px!important;font-weight:700!important}
+
+.topbar{padding:0 0 24px!important;margin:0 0 26px!important}
+.eyebrow{font-size:10px!important;letter-spacing:2px!important;margin-bottom:8px!important}
+.topbar h1{font-size:36px!important;line-height:1.25!important;margin:0 0 8px!important;letter-spacing:-1px!important}
+.topbar p{font-size:13px!important;margin:0!important}
+.steps{margin-top:26px!important}.step{font-size:12px!important;gap:7px!important}.step b{width:22px!important;height:22px!important;font-size:9px!important}.step-line{width:34px!important;margin:0 10px!important}
+
+[data-testid="stVerticalBlockBorderWrapper"]{padding:24px!important;margin-bottom:22px!important;border:1px solid #111!important;box-shadow:4px 4px 0 #111!important}
+.upload-head{padding-bottom:15px!important;margin-bottom:20px!important}.upload-head h2{font-size:22px!important}.upload-head h2:before{font-size:13px!important}.upload-head p{font-size:11px!important}.upload-count{font-size:11px!important;padding:6px 9px!important}
+[data-testid="stFileUploader"]{min-height:164px!important;padding:26px 28px!important}
+[data-testid="stFileUploader"] label{max-width:72%!important}
+[data-testid="stFileUploader"] label p{font-size:13px!important;line-height:1.5!important}
+[data-testid="stFileUploader"] label strong{font-size:20px!important;line-height:1.35!important;margin-bottom:6px!important}
+[data-testid="stFileUploader"]:after{left:28px!important;bottom:25px!important;font-size:10px!important;letter-spacing:1px!important}
+[data-testid="stFileUploaderDropzone"]{right:25px!important;top:24px!important;width:44px!important;height:44px!important;min-height:44px!important}
+[data-testid="stFileUploaderDropzone"] button{width:44px!important;min-width:44px!important;height:44px!important;border-width:1.5px!important}
+[data-testid="stFileUploaderDropzone"] button:after{font-size:27px!important}
+.file-status.ok{margin:-8px 0 14px!important;padding:7px 9px!important;font-size:10px!important}.file-status.ok span{font-size:9px!important}
+
+.section-label{font-size:21px!important;margin:28px 0 4px!important}.section-note{font-size:11px!important;margin-bottom:14px!important}
+[data-testid="stExpander"]{margin-bottom:12px!important}[data-testid="stExpander"] summary{font-family:'Inter','PingFang SC',sans-serif!important;font-size:13px!important;padding:14px 18px!important}
+.panel{padding:20px!important;margin-bottom:22px!important;box-shadow:3px 3px 0 #111!important}.panel-title{font-size:14px!important}.panel-title span{font-size:10px!important}
+.mini-metric:first-child strong{font-size:38px!important}.mini-metric strong{font-size:16px!important}.mini-metric small{font-size:10px!important}.task{font-size:11px!important}.event b{font-size:11px!important}.event span{font-size:10px!important}
+.download-card{padding:16px!important}.download-card b{font-size:14px!important}.download-card span{font-size:10px!important}
+
+/* 上传后的删除入口保留，但降级为轻量操作，避免破坏卡片网格 */
+[class*="st-key-clear_"] .stButton>button{min-height:30px!important;height:30px!important;background:transparent!important;border:0!important;box-shadow:none!important;color:#6b7280!important;font-size:10px!important;padding:0 8px!important}
+[class*="st-key-clear_"] .stButton>button:hover{color:#111!important;background:#ecebe5!important;transform:none!important;box-shadow:none!important}
+
+/* 原型中的固定底部暂存区 */
+.fixed-footer{position:fixed!important;left:224px!important;right:0!important;bottom:0!important;height:72px!important;margin:0!important;padding:0 max(32px,calc((100vw - 224px - 1200px)/2 + 32px))!important;background:rgba(246,245,240,.94)!important;backdrop-filter:blur(10px)!important;border-top:1px solid #1112!important;z-index:998!important;display:flex!important;align-items:center!important}
+.fixed-footer span{font-size:11px!important;color:#6b7280!important}.fixed-footer b{display:none!important}
+.st-key-save_web_manual,.st-key-save_app_manual{position:fixed!important;right:max(32px,calc((100vw - 224px - 1200px)/2 + 32px))!important;bottom:15px!important;width:255px!important;z-index:1000!important}
+.st-key-save_web_manual .stButton>button,.st-key-save_app_manual .stButton>button{height:42px!important;min-height:42px!important;background:#111!important;color:#e3f85a!important;border:1px solid #111!important;box-shadow:3px 3px 0 #777!important;font-size:13px!important}
+.st-key-save_web_manual .stButton>button:before,.st-key-save_app_manual .stButton>button:before{content:'⇩';font-size:16px;margin-right:8px}
+
+@media(max-width:900px){
+  [data-testid="stSidebar"]{display:none!important}.block-container{max-width:100%!important;padding:24px 16px 100px!important}.topbar h1{font-size:31px!important}.steps{overflow-x:auto!important}
+  [data-testid="stVerticalBlockBorderWrapper"]{padding:15px!important;box-shadow:3px 3px 0 #111!important}[data-testid="stFileUploader"]{min-height:150px!important;padding:22px!important}
+  .fixed-footer{left:0!important;padding:0 16px!important}.fixed-footer span{max-width:48%!important}.st-key-save_web_manual,.st-key-save_app_manual{right:16px!important;width:220px!important}
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -139,10 +191,10 @@ with st.sidebar:
 active_button_key = "port_web" if active_port == "web" else "port_app"
 st.markdown(
     f"<style>.st-key-{active_button_key} button{{background:var(--lime)!important;"
-    "color:#111!important;border-color:#111!important;box-shadow:6px 7px 0 #111!important;"
-    "transform:translate(-2px,-2px)!important}}"
+    "color:#111!important;border-color:#111!important;box-shadow:3px 3px 0 #111!important;"
+    "transform:translate(-1px,-1px)!important}}"
     f".st-key-{active_button_key} button:after{{content:'';position:absolute;left:-1px;top:22%;"
-    "bottom:22%;width:6px;background:#111;border-radius:0 5px 5px 0}}</style>",
+    "bottom:22%;width:4px;background:#111;border-radius:0 4px 4px 0}}</style>",
     unsafe_allow_html=True,
 )
 
@@ -179,13 +231,13 @@ if active_port == "app":
         )
 
     with app_main:
-        with st.container(border=True):
+        with st.container(border=True, key="app_upload_box"):
             app_upload_header = st.empty()
             app_u1, app_u2, app_u3 = st.columns(3)
             with app_u1:
                 app_google_upload_version = st.session_state.get("app_google_upload_version", 0)
                 app_google_files = st.file_uploader(
-                    "**APP Google消耗**  \nGoogle Ads APP投放消耗",
+                    "**Google消耗**  \nGoogle Ads 投放消耗",
                     type=["xlsx", "xlsm", "csv"], accept_multiple_files=True,
                     key=f"app_google_files_{app_google_upload_version}",
                 )
@@ -199,7 +251,7 @@ if active_port == "app":
             with app_u2:
                 app_meta_upload_version = st.session_state.get("app_meta_upload_version", 0)
                 app_meta_files = st.file_uploader(
-                    "**APP Meta消耗**  \nMeta Ads APP投放消耗",
+                    "**Meta消耗**  \nMeta Ads 投放消耗",
                     type=["xlsx", "xlsm", "csv"], accept_multiple_files=True,
                     key=f"app_meta_files_{app_meta_upload_version}",
                 )
@@ -213,7 +265,7 @@ if active_port == "app":
             with app_u3:
                 app_asa_upload_version = st.session_state.get("app_asa_upload_version", 0)
                 app_asa_files = st.file_uploader(
-                    "**APP ASA消耗**  \nASA分地区分天消耗",
+                    "**ASA消耗**  \nASA 分地区分天消耗",
                     type=["xlsx", "xlsm", "csv"], accept_multiple_files=True,
                     key=f"app_asa_files_{app_asa_upload_version}",
                 )
@@ -228,8 +280,8 @@ if active_port == "app":
                 bool(value) for value in (app_google_files, app_meta_files, app_asa_files)
             )
             app_upload_header.markdown(
-                f'<div class="upload-head"><div><h2>上传APP消耗数据</h2>'
-                f'<p>Google、Meta与ASA均按日期和地区自动汇总</p></div>'
+                f'<div class="upload-head"><div><h2>上传消耗数据</h2>'
+                f'<p>按日期和地区自动汇总</p></div>'
                 f'<div class="upload-count">{app_uploaded_count} / 3 已完成</div></div>',
                 unsafe_allow_html=True,
             )
@@ -462,7 +514,7 @@ def upload_status(files):
     )
 
 with main_col:
-    upload_container = st.container(border=True)
+    upload_container = st.container(border=True, key="web_upload_box")
     with upload_container:
         upload_header = st.empty()
         u1, u2 = st.columns(2)
