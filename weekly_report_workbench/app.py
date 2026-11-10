@@ -28,7 +28,7 @@ st.set_page_config(page_title="数据自动化", page_icon="A", layout="wide", i
 
 # 报告结构升级时清理当前浏览器会话里旧版本生成的结果。
 # 否则Streamlit热更新后，页面可能继续显示更新前缓存的4份报告。
-REPORT_SCHEMA_VERSION = "2026-11-10-app-asa-upload-v4"
+REPORT_SCHEMA_VERSION = "2026-11-10-app-total-sheet-v5"
 if st.session_state.get("report_schema_version") != REPORT_SCHEMA_VERSION:
     st.session_state.pop("reports", None)
     st.session_state.pop("warnings", None)
@@ -279,6 +279,7 @@ if active_port == "app":
             app_uploaded_count = sum(
                 bool(value) for value in (app_google_files, app_meta_files, app_asa_files)
             )
+            shared_order_files = st.session_state.get("shared_order_files", [])
             app_upload_header.markdown(
                 f'<div class="upload-head"><div><h2>上传消耗数据</h2>'
                 f'<p>按日期和地区自动汇总</p></div>'
@@ -322,6 +323,21 @@ if active_port == "app":
                         key=f"app_region_revenue_{region}_{period}",
                     )
 
+        with st.expander("APP总数据补充", expanded=False):
+            st.caption(
+                "APP自然量收入按本周、上周和MTD手动填写；总收入、新用户收入和老用户收入"
+                "会自动读取Web页面上传的订单表。"
+            )
+            st.markdown("**APP自然量收入**")
+            columns = st.columns(3)
+            for column, (period, label) in zip(columns, app_periods):
+                manual_key = f"app_natural_revenue_{period}"
+                app_manual[manual_key] = column.number_input(
+                    label, min_value=0.0,
+                    value=float(app_saved_manual.get(manual_key, 0.0)),
+                    key=f"app_{manual_key}",
+                )
+
         if st.button("暂存当前手动数据", key="save_app_manual", use_container_width=True):
             st.session_state["app_manual_saved"] = deepcopy(app_manual)
             st.success("手动数据已暂存在当前浏览器会话中。重新上传文件时不会丢失。")
@@ -329,7 +345,17 @@ if active_port == "app":
             st.caption("✓ 已暂存手动数据；重新上传Google或Meta文件不会清空这些数值。")
 
         app_target_defaults = {
+            "APP—新老综合ROI": 1.5,
+            "APP—新用户综合ROI（D0）": 1.2,
             "APP—投放新用户ROI（D7）": 1.2,
+            "APP—应用商店（ASA）新用户ROI（D7）": 0.75,
+            "APP—其他地区新老综合ROI": 1.2,
+            "APP—英语地区新老综合ROI": 1.2,
+            "总收入": 15000.0,
+            "APP投放收入": 2000.0,
+            "APP自然量收入": 9000.0,
+            "老用户收入": 10000.0,
+            "总成本": 7500.0,
             "Google—投放新用户 ROI（D7）": 1.2,
             "Meta—投放新用户 ROI（D7）": 1.2,
             "ASA—新用户ROI": 1.2,
@@ -403,10 +429,11 @@ if active_port == "app":
         st.caption(f"当前周期 · {app_start:%Y.%m.%d} – {app_end:%Y.%m.%d}")
         st.markdown('</div>', unsafe_allow_html=True)
 
-        app_completed = 1 + app_uploaded_count
-        app_readiness = int(app_completed / 4 * 100)
+        app_completed = 1 + app_uploaded_count + int(bool(shared_order_files))
+        app_readiness = int(app_completed / 5 * 100)
         app_tasks = (
             ("报告周期", True),
+            ("Web订单数据", bool(shared_order_files)),
             ("Google消耗", bool(app_google_files)),
             ("Meta消耗", bool(app_meta_files)),
             ("ASA消耗", bool(app_asa_files)),
@@ -419,21 +446,26 @@ if active_port == "app":
         st.markdown(
             f'<div class="panel"><div class="panel-title">报告准备度<span>{app_readiness}%</span></div>'
             f'<div class="mini-metrics"><div class="mini-metric"><strong>{app_readiness}%</strong><small>当前进度</small></div>'
-            f'<div class="mini-metric"><strong>{app_completed} / 3</strong><small>已完成项目</small></div></div>'
+            f'<div class="mini-metric"><strong>{app_completed} / 5</strong><small>已完成项目</small></div></div>'
             f'<div class="progress-track"><i style="width:{app_readiness}%"></i></div><div style="height:10px"></div>'
             f'{app_tasks_html}</div>',
             unsafe_allow_html=True,
         )
         st.markdown(
-            '<div class="panel"><div class="panel-title">本次输出<span>APP首张表</span></div>'
+            '<div class="panel"><div class="panel-title">本次输出<span>APP工作簿</span></div>'
             '<div class="timeline"><div class="event"><b>自动汇总消耗</b><span>Google / Meta / ASA按周期和地区统计</span></div>'
-            '<div class="event"><b>补充手动数据</b><span>投放平台D7收入</span></div>'
             '<div class="event"><b>生成Excel</b><span>沿用APP投放表格格式</span></div></div></div>',
             unsafe_allow_html=True,
         )
-        app_ready = all((app_google_files, app_meta_files, app_asa_files)) and app_start <= app_end
+        app_ready = all((shared_order_files, app_google_files, app_meta_files, app_asa_files)) and app_start <= app_end
+        if not shared_order_files:
+            app_button_label = "请先到Web页面上传订单数据"
+        elif not all((app_google_files, app_meta_files, app_asa_files)):
+            app_button_label = "请先上传Google、Meta和ASA消耗"
+        else:
+            app_button_label = "✦ 生成APP工作簿"
         app_generate = st.button(
-            "✦ 生成APP投放表" if app_ready else "请先上传Google、Meta和ASA消耗",
+            app_button_label,
             type="primary", disabled=not app_ready, use_container_width=True,
             key="app_generate",
         )
@@ -452,14 +484,16 @@ if active_port == "app":
                     st.write(f"Meta消耗：{len(app_meta):,} 行")
                     app_asa = read_app_uploads(app_asa_files, "asa")
                     st.write(f"ASA消耗：{len(app_asa):,} 行")
+                    app_orders = read_uploads(shared_order_files)
+                    st.write(f"Web订单数据：{len(app_orders):,} 行")
                     filename, content, warnings, costs = generate_app_report(
-                        app_google, app_meta, app_asa,
+                        app_google, app_meta, app_asa, app_orders,
                         app_start, app_end, app_manual, app_targets
                     )
                     st.session_state["app_report"] = (filename, content)
                     st.session_state["app_report_warnings"] = warnings
                     st.session_state["app_cost_summary"] = costs
-                    status.update(label="APP投放营收表已生成", state="complete", expanded=False)
+                    status.update(label="APP工作簿已生成", state="complete", expanded=False)
         except Exception as exc:
             with app_main:
                 st.exception(exc)
@@ -476,15 +510,15 @@ if active_port == "app":
                 st.dataframe(cost_table, hide_index=True, use_container_width=True)
             st.markdown(
                 '<div class="section-label">04 APP表格已就绪</div>'
-                '<div class="section-note">当前先输出APP投放营收这一张表。</div>',
+                '<div class="section-note">工作簿包含APP投放表和APP总数据表。</div>',
                 unsafe_allow_html=True,
             )
             st.markdown(
-                f'<div class="download-card"><b>APP投放营收</b><br><span>Excel · {len(content)/1024:.1f} KB</span></div>',
+                f'<div class="download-card"><b>APP投放与总数据</b><br><span>Excel · {len(content)/1024:.1f} KB</span></div>',
                 unsafe_allow_html=True,
             )
             st.download_button(
-                "下载APP投放表", content, filename,
+                "下载APP工作簿", content, filename,
                 "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                 type="primary", use_container_width=True, key="download_app_report",
             )
@@ -545,10 +579,13 @@ with main_col:
                 "**订单数据**  \n订单及收入相关数据", type=["xlsx","xlsm","csv"],
                 accept_multiple_files=True, key=f"order_files_{order_upload_version}"
             )
+            if order_files:
+                st.session_state["shared_order_files"] = list(order_files)
             st.markdown(upload_status(order_files), unsafe_allow_html=True)
             if order_files and st.button("删除已上传的订单文件", key="clear_order_files", use_container_width=True):
                 st.session_state["order_upload_version"] = order_upload_version + 1
                 st.session_state.pop("reports", None)
+                st.session_state.pop("shared_order_files", None)
                 st.rerun()
             bing_upload_version = st.session_state.get("bing_upload_version", 0)
             bing_files = st.file_uploader(

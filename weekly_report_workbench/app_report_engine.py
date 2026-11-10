@@ -29,6 +29,86 @@ META_REGION_MAP = {
     "ID": "印度尼西亚", "IDN": "印度尼西亚", "INDONESIA": "印度尼西亚",
 }
 
+OTHER_ROI_COUNTRIES = {
+    "印度", "印度尼西亚", "马来西亚", "菲律宾", "巴西", "日本", "秘鲁", "阿根廷",
+    "墨西哥", "葡萄牙", "智利", "厄瓜多尔", "新加坡", "巴拿马", "西班牙", "法国",
+    "玻利维亚", "危地马拉", "泰国", "牙买加", "乌拉圭", "多米尼加", "哥伦比亚",
+    "韩国", "特立尼达和多巴哥", "萨尔瓦多", "俄罗斯", "委内瑞拉", "洪都拉斯",
+    "巴拉圭", "尼加拉瓜",
+}
+
+ENGLISH_ROI_COUNTRIES = {
+    "英国", "美国", "澳大利亚", "加拿大", "越南", "沙特", "沙特阿拉伯", "阿联酋",
+    "荷兰", "缅甸", "土耳其", "埃及", "卡塔尔", "瑞典", "科威特", "柬埔寨",
+    "巴基斯坦", "瑞士", "意大利",
+}
+
+COUNTRY_ALIASES = {
+    "GB": "英国", "GBR": "英国", "UK": "英国", "UNITED KINGDOM": "英国",
+    "US": "美国", "USA": "美国", "UNITED STATES": "美国",
+    "AU": "澳大利亚", "AUS": "澳大利亚", "AUSTRALIA": "澳大利亚",
+    "CA": "加拿大", "CAN": "加拿大", "CANADA": "加拿大",
+    "VN": "越南", "VNM": "越南", "VIETNAM": "越南",
+    "SA": "沙特", "SAU": "沙特", "SAUDI ARABIA": "沙特",
+    "AE": "阿联酋", "ARE": "阿联酋", "UAE": "阿联酋", "UNITED ARAB EMIRATES": "阿联酋",
+    "NL": "荷兰", "NLD": "荷兰", "NETHERLANDS": "荷兰",
+    "MM": "缅甸", "MMR": "缅甸", "MYANMAR": "缅甸",
+    "TR": "土耳其", "TUR": "土耳其", "TURKEY": "土耳其", "TÜRKIYE": "土耳其",
+    "EG": "埃及", "EGY": "埃及", "EGYPT": "埃及",
+    "QA": "卡塔尔", "QAT": "卡塔尔", "QATAR": "卡塔尔",
+    "SE": "瑞典", "SWE": "瑞典", "SWEDEN": "瑞典",
+    "KW": "科威特", "KWT": "科威特", "KUWAIT": "科威特",
+    "KH": "柬埔寨", "KHM": "柬埔寨", "CAMBODIA": "柬埔寨",
+    "PK": "巴基斯坦", "PAK": "巴基斯坦", "PAKISTAN": "巴基斯坦",
+    "CH": "瑞士", "CHE": "瑞士", "SWITZERLAND": "瑞士",
+    "IT": "意大利", "ITA": "意大利", "ITALY": "意大利",
+    "IN": "印度", "IND": "印度", "INDIA": "印度",
+    "ID": "印度尼西亚", "IDN": "印度尼西亚", "INDONESIA": "印度尼西亚",
+    "MY": "马来西亚", "MYS": "马来西亚", "MALAYSIA": "马来西亚",
+    "PH": "菲律宾", "PHL": "菲律宾", "PHILIPPINES": "菲律宾",
+    "BR": "巴西", "BRA": "巴西", "BRAZIL": "巴西",
+    "JP": "日本", "JPN": "日本", "JAPAN": "日本",
+    "PE": "秘鲁", "PER": "秘鲁", "PERU": "秘鲁",
+    "AR": "阿根廷", "ARG": "阿根廷", "ARGENTINA": "阿根廷",
+    "MX": "墨西哥", "MEX": "墨西哥", "MEXICO": "墨西哥",
+    "PT": "葡萄牙", "PRT": "葡萄牙", "PORTUGAL": "葡萄牙",
+    "CL": "智利", "CHL": "智利", "CHILE": "智利",
+    "EC": "厄瓜多尔", "ECU": "厄瓜多尔", "ECUADOR": "厄瓜多尔",
+    "SG": "新加坡", "SGP": "新加坡", "SINGAPORE": "新加坡",
+    "PA": "巴拿马", "PAN": "巴拿马", "PANAMA": "巴拿马",
+    "ES": "西班牙", "ESP": "西班牙", "SPAIN": "西班牙",
+    "FR": "法国", "FRA": "法国", "FRANCE": "法国",
+    "BO": "玻利维亚", "BOL": "玻利维亚", "BOLIVIA": "玻利维亚",
+    "GT": "危地马拉", "GTM": "危地马拉", "GUATEMALA": "危地马拉",
+    "TH": "泰国", "THA": "泰国", "THAILAND": "泰国",
+    "JM": "牙买加", "JAM": "牙买加", "JAMAICA": "牙买加",
+    "UY": "乌拉圭", "URY": "乌拉圭", "URUGUAY": "乌拉圭",
+    "DO": "多米尼加", "DOM": "多米尼加", "DOMINICAN REPUBLIC": "多米尼加",
+    "CO": "哥伦比亚", "COL": "哥伦比亚", "COLOMBIA": "哥伦比亚",
+    "KR": "韩国", "KOR": "韩国", "SOUTH KOREA": "韩国", "REPUBLIC OF KOREA": "韩国",
+    "TT": "特立尼达和多巴哥", "TTO": "特立尼达和多巴哥", "TRINIDAD AND TOBAGO": "特立尼达和多巴哥",
+    "SV": "萨尔瓦多", "SLV": "萨尔瓦多", "EL SALVADOR": "萨尔瓦多",
+    "RU": "俄罗斯", "RUS": "俄罗斯", "RUSSIA": "俄罗斯", "RUSSIAN FEDERATION": "俄罗斯",
+    "VE": "委内瑞拉", "VEN": "委内瑞拉", "VENEZUELA": "委内瑞拉",
+    "HN": "洪都拉斯", "HND": "洪都拉斯", "HONDURAS": "洪都拉斯",
+    "PY": "巴拉圭", "PRY": "巴拉圭", "PARAGUAY": "巴拉圭",
+    "NI": "尼加拉瓜", "NIC": "尼加拉瓜", "NICARAGUA": "尼加拉瓜",
+}
+
+
+def _canonical_country(value) -> str:
+    text = str(value or "").strip()
+    return COUNTRY_ALIASES.get(text.upper(), text)
+
+
+def _roi_group(value) -> str:
+    country = _canonical_country(value)
+    if country in ENGLISH_ROI_COUNTRIES:
+        return "英语地区"
+    if country in OTHER_ROI_COUNTRIES:
+        return "其他地区"
+    return ""
+
 
 def _read_csv(file) -> pd.DataFrame:
     file.seek(0)
@@ -129,12 +209,14 @@ def prepare_app_costs(
             lambda value: GOOGLE_REGION_MAP.get(value, GOOGLE_REGION_MAP.get(value.lower(), "其他"))
         )
     )
+    google["roi_group"] = google["region"].map(_roi_group)
 
     meta["date"] = pd.to_datetime(meta["date"], errors="coerce")
     meta["cost"] = pd.to_numeric(meta["cost"], errors="coerce").fillna(0.0)
     meta["region_group"] = (
         meta["region"].fillna("").astype(str).str.strip().str.upper().map(META_REGION_MAP).fillna("其他")
     )
+    meta["roi_group"] = meta["region"].map(_roi_group)
 
     asa["date"] = pd.to_datetime(asa["date"], errors="coerce")
     asa["cost"] = pd.to_numeric(asa["cost"], errors="coerce").fillna(0.0)
@@ -143,6 +225,7 @@ def prepare_app_costs(
             lambda value: GOOGLE_REGION_MAP.get(value, GOOGLE_REGION_MAP.get(value.lower(), "其他"))
         )
     )
+    asa["roi_group"] = asa["region"].map(_roi_group)
 
     if google["date"].isna().any():
         warnings.append(f"Google有 {int(google['date'].isna().sum())} 行日期无法识别，已忽略。")
@@ -151,6 +234,42 @@ def prepare_app_costs(
     if asa["date"].isna().any():
         warnings.append(f"ASA有 {int(asa['date'].isna().sum())} 行日期无法识别，已忽略。")
     return google, meta, asa, warnings
+
+
+def prepare_app_orders(orders: pd.DataFrame) -> tuple[pd.DataFrame, list[str]]:
+    warnings: list[str] = []
+    orders = orders.copy()
+    if "订单金额" not in orders.columns and "兑换美元" in orders.columns:
+        orders["订单金额"] = orders["兑换美元"]
+        warnings.append("APP总数据的订单金额使用订单表“兑换美元”字段。")
+    required = ["支付端口", "国家", "订单金额", "注册转化周期"]
+    missing = [column for column in required if column not in orders.columns]
+    if "支付时间" not in orders.columns and "订单生成时间" not in orders.columns:
+        missing.append("支付时间或订单生成时间")
+    if missing:
+        raise ValueError(f"APP总数据所用订单表缺少字段：{', '.join(missing)}")
+    for key in ("订单id", "订单ID"):
+        if key in orders.columns:
+            before = len(orders)
+            orders = orders.drop_duplicates(key, keep="last")
+            if before != len(orders):
+                warnings.append(f"APP总数据按{key}去除 {before-len(orders)} 条重复订单。")
+            break
+    date_field = "支付时间" if "支付时间" in orders.columns else "订单生成时间"
+    if date_field != "支付时间":
+        warnings.append("订单表缺少支付时间，APP总数据暂按订单生成时间统计。")
+    orders["app_date"] = pd.to_datetime(orders[date_field], errors="coerce")
+    orders["订单金额"] = pd.to_numeric(
+        orders["订单金额"].astype(str).str.replace(",", "", regex=False).str.replace(r"[^0-9.\-]", "", regex=True),
+        errors="coerce",
+    ).fillna(0.0)
+    orders["注册转化周期"] = pd.to_numeric(orders["注册转化周期"], errors="coerce")
+    orders["roi_group"] = orders["国家"].map(_roi_group)
+    app_mask = orders["支付端口"].fillna("").astype(str).str.contains("APP", case=False, regex=False)
+    invalid_dates = int(orders.loc[app_mask, "app_date"].isna().sum())
+    if invalid_dates:
+        warnings.append(f"APP订单有 {invalid_dates} 行支付日期无法识别，已忽略。")
+    return orders.loc[app_mask & orders["app_date"].notna()].copy(), warnings
 
 
 def _period_ranges(start: date, end: date) -> dict[str, tuple[date, date]]:
@@ -169,6 +288,23 @@ def _sum_cost(frame: pd.DataFrame, start: date, end: date, region: str | None = 
     return float(frame.loc[mask, "cost"].sum())
 
 
+def _sum_cost_group(frame: pd.DataFrame, start: date, end: date, roi_group: str) -> float:
+    mask = frame["date"].dt.date.between(start, end) & frame["roi_group"].eq(roi_group)
+    return float(frame.loc[mask, "cost"].sum())
+
+
+def _sum_order_revenue(
+    orders: pd.DataFrame, start: date, end: date, *, new_only: bool = False,
+    roi_group: str | None = None,
+) -> float:
+    mask = orders["app_date"].dt.date.between(start, end)
+    if new_only:
+        mask &= orders["注册转化周期"].eq(0)
+    if roi_group is not None:
+        mask &= orders["roi_group"].eq(roi_group)
+    return float(orders.loc[mask, "订单金额"].sum())
+
+
 def _safe_div(numerator: float, denominator: float) -> float:
     return float(numerator) / float(denominator) if denominator else 0.0
 
@@ -181,6 +317,7 @@ def generate_app_report(
     google: pd.DataFrame,
     meta: pd.DataFrame,
     asa: pd.DataFrame,
+    orders: pd.DataFrame,
     start: date,
     end: date,
     manual: dict[str, float],
@@ -192,9 +329,12 @@ def generate_app_report(
         raise FileNotFoundError(f"找不到APP投放模板：{APP_TEMPLATE}")
 
     google, meta, asa, warnings = prepare_app_costs(google, meta, asa)
+    orders, order_warnings = prepare_app_orders(orders)
+    warnings.extend(order_warnings)
     ranges = _period_ranges(start, end)
     values: dict[str, dict[str, float]] = {}
     cost_summary: dict[str, dict[str, float]] = {}
+    total_values: dict[str, dict[str, float]] = {}
 
     for period, (period_start, period_end) in ranges.items():
         google_cost = _sum_cost(google, period_start, period_end)
@@ -235,6 +375,29 @@ def generate_app_report(
             )
             values[period][f"地区ROI_{region}"] = _safe_div(revenue, region_cost)
         values[period]["地区收入_其他"] = total_revenue - region_revenue_total
+
+        app_total_revenue = _sum_order_revenue(orders, period_start, period_end)
+        app_new_revenue = _sum_order_revenue(orders, period_start, period_end, new_only=True)
+        app_natural_revenue = float(manual.get(f"app_natural_revenue_{period}", 0.0))
+        total_values[period] = {
+            "APP—新老综合ROI": _safe_div(app_total_revenue, total_cost),
+            "APP—新用户综合ROI（D0）": _safe_div(app_new_revenue, total_cost),
+            "APP—投放新用户ROI（D7）": values[period]["APP—投放新用户ROI（D7）"],
+            "APP—应用商店（ASA）新用户ROI（D7）": values[period]["ASA—新用户ROI"],
+            "APP—其他地区新老综合ROI": _safe_div(
+                _sum_order_revenue(orders, period_start, period_end, roi_group="其他地区"),
+                sum(_sum_cost_group(frame, period_start, period_end, "其他地区") for frame in (google, meta, asa)),
+            ),
+            "APP—英语地区新老综合ROI": _safe_div(
+                _sum_order_revenue(orders, period_start, period_end, roi_group="英语地区"),
+                sum(_sum_cost_group(frame, period_start, period_end, "英语地区") for frame in (google, meta, asa)),
+            ),
+            "总收入": app_total_revenue,
+            "APP投放收入": total_revenue,
+            "APP自然量收入": app_natural_revenue,
+            "老用户收入": app_total_revenue - total_revenue - app_natural_revenue,
+            "总成本": total_cost,
+        }
 
     workbook = load_workbook(APP_TEMPLATE)
     sheet = workbook[workbook.sheetnames[0]]
@@ -292,6 +455,46 @@ def generate_app_report(
     # 模板H列是内部统计口径说明，不属于最终对外报表。
     if sheet.max_column >= 8:
         sheet.delete_cols(8, sheet.max_column - 7)
+
+    total_sheet = workbook["Sheet2"]
+    total_sheet["B2"] = f"{start:%m.%d}-{end:%m.%d}"
+    previous_start, previous_end = ranges["上周"]
+    total_sheet["C2"] = f"{previous_start:%m.%d}-{previous_end:%m.%d}"
+    total_sheet["E2"] = f"{end.month}月MTD"
+    total_rows = {
+        3: "APP—新老综合ROI",
+        4: "APP—新用户综合ROI（D0）",
+        5: "APP—投放新用户ROI（D7）",
+        6: "APP—应用商店（ASA）新用户ROI（D7）",
+        7: "APP—其他地区新老综合ROI",
+        8: "APP—英语地区新老综合ROI",
+        9: "总收入",
+        10: "APP投放收入",
+        11: "APP自然量收入",
+        12: "老用户收入",
+        13: "总成本",
+    }
+    for row, key in total_rows.items():
+        current = total_values["本周"][key]
+        previous = total_values["上周"][key]
+        mtd = total_values["MTD"][key]
+        target = float(targets.get(key, 0.0))
+        total_sheet.cell(row, 2, current)
+        total_sheet.cell(row, 3, previous)
+        total_sheet.cell(row, 4, _change(current, previous))
+        total_sheet.cell(row, 5, mtd)
+        total_sheet.cell(row, 6, target)
+        total_sheet.cell(row, 7, _safe_div(mtd, target))
+    for row in range(3, 9):
+        for column in range(2, 8):
+            total_sheet.cell(row, column).number_format = "0%"
+    for row in range(9, 14):
+        for column in (2, 3, 5, 6):
+            total_sheet.cell(row, column).number_format = '$#,##0'
+        for column in (4, 7):
+            total_sheet.cell(row, column).number_format = "0%"
+    if total_sheet.max_column >= 8:
+        total_sheet.delete_cols(8, total_sheet.max_column - 7)
 
     output = BytesIO()
     workbook.save(output)
