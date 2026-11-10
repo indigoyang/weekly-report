@@ -9,6 +9,7 @@ import streamlit as st
 import pandas as pd
 
 from report_engine import read_uploads
+from app_report_engine import generate_app_report, read_app_uploads
 from v3_report_engine import generate_v3_reports
 from target_store import (
     ALL_CHANNEL_TARGET_METRICS,
@@ -149,25 +150,235 @@ if active_port == "app":
         <header class="topbar">
           <div class="eyebrow">APP Report Workbench</div>
           <h1>APP数据自动化</h1>
-          <p>APP端拥有独立的数据上传、统计口径和报告输出，不与WEB端数据混用</p>
+          <p>上传Google与Meta消耗，补充ASA消耗和D7收入，生成APP投放营收表</p>
           <div class="steps">
-            <div class="step on"><b>01</b>APP工作台</div><div class="step-line"></div>
-            <div class="step"><b>02</b>上传数据</div><div class="step-line"></div>
-            <div class="step"><b>03</b>配置口径</div><div class="step-line"></div>
-            <div class="step"><b>04</b>生成报告</div>
+            <div class="step done"><b>✓</b>选择周期</div><div class="step-line"></div>
+            <div class="step on"><b>02</b>上传消耗</div><div class="step-line"></div>
+            <div class="step"><b>03</b>补充收入</div><div class="step-line"></div>
+            <div class="step"><b>04</b>生成表格</div>
           </div>
         </header>
-        <section class="app-shell">
-          <h2>APP端工作区</h2>
-          <p>页面结构已与WEB端分开。后续接入APP表格时，只需在这里配置APP专属数据和模板。</p>
-          <div class="app-grid">
-            <div class="app-card"><i>待接入</i><b>APP注册数据</b><span>APP用户注册、地区与渠道来源</span></div>
-            <div class="app-card"><i>待接入</i><b>APP订单数据</b><span>APP订单、会员类型与收入数据</span></div>
-            <div class="app-card"><i>待接入</i><b>APP投放消耗</b><span>APP各平台广告消耗及活动数据</span></div>
-            <div class="app-card"><i>待配置</i><b>APP报告模板</b><span>独立维护APP周报格式和统计口径</span></div>
-          </div>
-        </section>
         """,
+        unsafe_allow_html=True,
+    )
+
+    today = date.today()
+    app_default_end = today - timedelta(days=1)
+    app_default_start = app_default_end - timedelta(days=6)
+    app_main, app_side = st.columns([3.15, 1], gap="large")
+
+    def app_upload_status(files):
+        if not files:
+            return '<div class="file-status">待上传</div>'
+        names = "、".join(escape(file.name) for file in files)
+        return (
+            f'<div class="file-status ok">✓ 已上传 {len(files)} 个文件 · 等待格式检查'
+            f'<span>{names}</span></div>'
+        )
+
+    with app_main:
+        with st.container(border=True):
+            app_upload_header = st.empty()
+            app_u1, app_u2 = st.columns(2)
+            with app_u1:
+                app_google_files = st.file_uploader(
+                    "**APP Google消耗**  \nGoogle Ads APP投放消耗",
+                    type=["xlsx", "xlsm", "csv"], accept_multiple_files=True,
+                    key="app_google_files",
+                )
+                st.markdown(app_upload_status(app_google_files), unsafe_allow_html=True)
+            with app_u2:
+                app_meta_files = st.file_uploader(
+                    "**APP Meta消耗**  \nMeta Ads APP投放消耗",
+                    type=["xlsx", "xlsm", "csv"], accept_multiple_files=True,
+                    key="app_meta_files",
+                )
+                st.markdown(app_upload_status(app_meta_files), unsafe_allow_html=True)
+            app_uploaded_count = sum(bool(value) for value in (app_google_files, app_meta_files))
+            app_upload_header.markdown(
+                f'<div class="upload-head"><div><h2>上传APP消耗数据</h2>'
+                f'<p>Google与Meta自动汇总；ASA消耗在下方手动填写</p></div>'
+                f'<div class="upload-count">{app_uploaded_count} / 2 已完成</div></div>',
+                unsafe_allow_html=True,
+            )
+
+        st.markdown(
+            '<div class="section-label">02 补充APP收入与ASA消耗</div>'
+            '<div class="section-note">D7收入和ASA消耗暂无自动数据源，按本周、上周、MTD填写。</div>',
+            unsafe_allow_html=True,
+        )
+        app_manual = {}
+        app_periods = (("本周", "本周"), ("上周", "上周"), ("MTD", "累计 / MTD"))
+
+        with st.expander("D7收入（手动填写）", expanded=True):
+            for prefix, title in (
+                ("google_revenue", "Google收入（D7）"),
+                ("meta_revenue", "Meta收入（D7）"),
+                ("asa_revenue", "ASA收入（D7）"),
+            ):
+                st.markdown(f"**{title}**")
+                columns = st.columns(3)
+                for column, (period, label) in zip(columns, app_periods):
+                    app_manual[f"{prefix}_{period}"] = column.number_input(
+                        label, min_value=0.0, value=0.0,
+                        key=f"app_{prefix}_{period}",
+                    )
+
+        with st.expander("ASA消耗（手动填写）", expanded=False):
+            st.markdown("**ASA总消耗**")
+            columns = st.columns(3)
+            for column, (period, label) in zip(columns, app_periods):
+                app_manual[f"asa_cost_{period}"] = column.number_input(
+                    label, min_value=0.0, value=0.0,
+                    key=f"app_asa_cost_{period}",
+                )
+
+        with st.expander("地区买量收入（手动填写）", expanded=False):
+            st.caption("填写台湾、韩国、印度、印度尼西亚的Google + Meta + ASA收入合计；其他地区由总收入减去这四个地区自动得到。")
+            for region in ("台湾", "韩国", "印度", "印度尼西亚"):
+                st.markdown(f"**{region}收入**")
+                columns = st.columns(3)
+                for column, (period, label) in zip(columns, app_periods):
+                    app_manual[f"region_revenue_{region}_{period}"] = column.number_input(
+                        label, min_value=0.0, value=0.0,
+                        key=f"app_region_revenue_{region}_{period}",
+                    )
+
+        with st.expander("地区ASA消耗（手动填写）", expanded=False):
+            st.caption("Google和Meta地区消耗会从上传文件自动统计，这里只补充各地区ASA消耗。")
+            for region in ("台湾", "韩国", "印度", "印度尼西亚"):
+                st.markdown(f"**{region}ASA消耗**")
+                columns = st.columns(3)
+                for column, (period, label) in zip(columns, app_periods):
+                    app_manual[f"asa_region_cost_{region}_{period}"] = column.number_input(
+                        label, min_value=0.0, value=0.0,
+                        key=f"app_asa_region_cost_{region}_{period}",
+                    )
+
+        app_target_defaults = {
+            "APP—投放新用户ROI（D7）": 1.2,
+            "Google—投放新用户 ROI（D7）": 1.2,
+            "Meta—投放新用户 ROI（D7）": 1.2,
+            "ASA—新用户ROI": 1.2,
+            "APP投放总收入（D7）": 4000.0,
+            "Google收入（D7）": 2000.0,
+            "Meta收入（D7）": 2000.0,
+            "ASA收入（D7）": 2000.0,
+            "地区收入_台湾": 1000.0,
+            "地区收入_韩国": 500.0,
+            "地区收入_印度": 500.0,
+            "地区收入_印度尼西亚": 500.0,
+            "地区收入_其他": 500.0,
+            "地区ROI_台湾": 1.0,
+            "地区ROI_韩国": 1.0,
+            "地区ROI_印度": 1.0,
+            "地区ROI_印度尼西亚": 1.0,
+        }
+        with st.expander("APP月度目标", expanded=False):
+            st.caption("ROI目标用小数填写，例如120%填写1.2；收入目标直接填写美元金额。")
+            target_frame = pd.DataFrame(
+                [{"指标": key, "目标": value} for key, value in app_target_defaults.items()]
+            )
+            edited_targets = st.data_editor(
+                target_frame,
+                hide_index=True,
+                disabled=["指标"],
+                use_container_width=True,
+                key="app_targets_editor",
+                column_config={"目标": st.column_config.NumberColumn("目标", min_value=0.0, format="%.2f")},
+            )
+            app_targets = {
+                str(row["指标"]): float(row["目标"] or 0.0)
+                for row in edited_targets.to_dict("records")
+            }
+
+    with app_side:
+        st.markdown('<div class="panel"><div class="panel-title">APP报告周期<span>自动保存</span></div>', unsafe_allow_html=True)
+        app_start = st.date_input("开始日期", app_default_start, key="app_report_start")
+        app_end = st.date_input("结束日期", app_default_end, key="app_report_end")
+        st.caption(f"当前周期 · {app_start:%Y.%m.%d} – {app_end:%Y.%m.%d}")
+        st.markdown('</div>', unsafe_allow_html=True)
+
+        app_completed = 1 + app_uploaded_count
+        app_readiness = int(app_completed / 3 * 100)
+        app_tasks = (("报告周期", True), ("Google消耗", bool(app_google_files)), ("Meta消耗", bool(app_meta_files)))
+        app_tasks_html = "".join(
+            f'<div class="task"><b>{"✓" if done else "○"} {name}</b>'
+            f'<span class="{"done" if done else ""}">{"已完成" if done else "待上传"}</span></div>'
+            for name, done in app_tasks
+        )
+        st.markdown(
+            f'<div class="panel"><div class="panel-title">报告准备度<span>{app_readiness}%</span></div>'
+            f'<div class="mini-metrics"><div class="mini-metric"><strong>{app_readiness}%</strong><small>当前进度</small></div>'
+            f'<div class="mini-metric"><strong>{app_completed} / 3</strong><small>已完成项目</small></div></div>'
+            f'<div class="progress-track"><i style="width:{app_readiness}%"></i></div><div style="height:10px"></div>'
+            f'{app_tasks_html}</div>',
+            unsafe_allow_html=True,
+        )
+        st.markdown(
+            '<div class="panel"><div class="panel-title">本次输出<span>APP首张表</span></div>'
+            '<div class="timeline"><div class="event"><b>自动汇总消耗</b><span>Google / Meta按周期和地区统计</span></div>'
+            '<div class="event"><b>补充手动数据</b><span>ASA消耗与D7收入</span></div>'
+            '<div class="event"><b>生成Excel</b><span>沿用APP投放表格格式</span></div></div></div>',
+            unsafe_allow_html=True,
+        )
+        app_ready = all((app_google_files, app_meta_files)) and app_start <= app_end
+        app_generate = st.button(
+            "✦ 生成APP投放表" if app_ready else "请先上传Google和Meta消耗",
+            type="primary", disabled=not app_ready, use_container_width=True,
+            key="app_generate",
+        )
+
+    if app_start > app_end:
+        with app_side:
+            st.error("开始日期不能晚于结束日期。")
+
+    if app_generate:
+        try:
+            with app_main:
+                with st.status("正在读取APP消耗并生成表格……", expanded=True) as status:
+                    app_google = read_app_uploads(app_google_files, "google")
+                    st.write(f"Google消耗：{len(app_google):,} 行")
+                    app_meta = read_app_uploads(app_meta_files, "meta")
+                    st.write(f"Meta消耗：{len(app_meta):,} 行")
+                    filename, content, warnings, costs = generate_app_report(
+                        app_google, app_meta, app_start, app_end, app_manual, app_targets
+                    )
+                    st.session_state["app_report"] = (filename, content)
+                    st.session_state["app_report_warnings"] = warnings
+                    st.session_state["app_cost_summary"] = costs
+                    status.update(label="APP投放营收表已生成", state="complete", expanded=False)
+        except Exception as exc:
+            with app_main:
+                st.exception(exc)
+
+    if st.session_state.get("app_report"):
+        filename, content = st.session_state["app_report"]
+        with app_main:
+            for warning in st.session_state.get("app_report_warnings", []):
+                st.warning(warning)
+            costs = st.session_state.get("app_cost_summary", {})
+            if costs:
+                st.markdown('<div class="section-label">03 自动汇总消耗</div>', unsafe_allow_html=True)
+                cost_table = pd.DataFrame(costs).T.reset_index(names="周期")
+                st.dataframe(cost_table, hide_index=True, use_container_width=True)
+            st.markdown(
+                '<div class="section-label">04 APP表格已就绪</div>'
+                '<div class="section-note">当前先输出APP投放营收这一张表。</div>',
+                unsafe_allow_html=True,
+            )
+            st.markdown(
+                f'<div class="download-card"><b>APP投放营收</b><br><span>Excel · {len(content)/1024:.1f} KB</span></div>',
+                unsafe_allow_html=True,
+            )
+            st.download_button(
+                "下载APP投放表", content, filename,
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                type="primary", use_container_width=True, key="download_app_report",
+            )
+
+    st.markdown(
+        '<div class="fixed-footer"><span>APP与WEB数据相互独立</span><b>DATA AUTOMATION · APP工作台</b></div>',
         unsafe_allow_html=True,
     )
     st.stop()
