@@ -28,7 +28,7 @@ st.set_page_config(page_title="数据自动化", page_icon="A", layout="wide", i
 
 # 报告结构升级时清理当前浏览器会话里旧版本生成的结果。
 # 否则Streamlit热更新后，页面可能继续显示更新前缓存的4份报告。
-REPORT_SCHEMA_VERSION = "2026-11-10-web-scroll-layout-v7"
+REPORT_SCHEMA_VERSION = "2026-11-10-app-target-download-v8"
 if st.session_state.get("report_schema_version") != REPORT_SCHEMA_VERSION:
     st.session_state.pop("reports", None)
     st.session_state.pop("warnings", None)
@@ -122,7 +122,7 @@ html{font-size:17px}
 /* 2026-11 UI定稿：按Web/App原型统一尺寸，放在最后避免被旧规则覆盖 */
 html{font-size:15px!important}
 .stApp{background:#f6f5f0!important}
-.block-container{max-width:1200px!important;padding:48px 32px 175px!important;margin:0 auto!important}
+.block-container{max-width:1200px!important;padding:48px 32px 300px!important;margin:0 auto!important}
 [data-testid="stSidebar"]{width:224px!important;min-width:224px!important;background:#f6f5f0!important}
 [data-testid="stSidebar"]>div:first-child{width:224px!important;padding:40px 20px!important}
 [data-testid="stSidebar"] .sidebar-section-title{font-family:'Inter','PingFang SC',sans-serif!important;font-size:11px!important;font-weight:800!important;letter-spacing:1.2px!important;color:#9ca3af!important;margin:0 8px 16px!important}
@@ -161,15 +161,17 @@ html{font-size:15px!important}
 /* 固定底部操作栏；页面预留175px底部空间，避免遮住目标、生成和下载区域 */
 .fixed-footer{position:fixed!important;left:224px!important;right:0!important;bottom:0!important;height:72px!important;margin:0!important;padding:0 max(32px,calc((100vw - 224px - 1200px)/2 + 32px))!important;background:rgba(246,245,240,.96)!important;backdrop-filter:blur(10px)!important;border-top:1px solid #1112!important;z-index:998!important;display:flex!important;align-items:center!important}
 .fixed-footer span{font-size:11px!important;color:#6b7280!important}.fixed-footer b{display:none!important}
+.fixed-footer a{color:#111!important;font-weight:700!important;text-decoration:underline!important;margin-left:12px!important}
 .st-key-save_web_manual,.st-key-save_app_manual{position:fixed!important;right:max(32px,calc((100vw - 224px - 1200px)/2 + 32px))!important;bottom:15px!important;width:255px!important;z-index:1000!important}
 .st-key-save_web_manual .stButton>button,.st-key-save_app_manual .stButton>button{height:42px!important;min-height:42px!important;background:#111!important;color:#e3f85a!important;border:1px solid #111!important;box-shadow:3px 3px 0 #777!important;font-size:13px!important}
 .st-key-save_web_manual .stButton>button:before,.st-key-save_app_manual .stButton>button:before{content:'⇩';font-size:16px;margin-right:8px}
 .inline-save-status{position:fixed;right:max(307px,calc((100vw - 224px - 1200px)/2 + 307px));bottom:15px;width:390px;height:42px;z-index:1000;display:flex;align-items:center;padding:0 14px;border:1px solid #badb88;background:#edf9e9;color:#245c47;font-size:12px;line-height:1.35}
+.target-anchor{height:1px;scroll-margin-top:90px}
 /* 右侧生成按钮随页面保持在固定栏上方，长表单下也能随时操作 */
 .st-key-web_generate,.st-key-app_generate{position:sticky!important;bottom:88px!important;z-index:900!important;background:#f6f5f0!important;padding:8px 0 3px!important}
 
 @media(max-width:900px){
-  [data-testid="stSidebar"]{display:none!important}.block-container{max-width:100%!important;padding:24px 16px 165px!important}.topbar h1{font-size:31px!important}.steps{overflow-x:auto!important}
+  [data-testid="stSidebar"]{display:none!important}.block-container{max-width:100%!important;padding:24px 16px 240px!important}.topbar h1{font-size:31px!important}.steps{overflow-x:auto!important}
   [data-testid="stVerticalBlockBorderWrapper"]{padding:15px!important;box-shadow:3px 3px 0 #111!important}[data-testid="stFileUploader"]{min-height:150px!important;padding:22px!important}
   .fixed-footer{left:0!important;padding:0 16px!important}.fixed-footer span{display:none!important}.st-key-save_web_manual,.st-key-save_app_manual{right:16px!important;width:210px!important}.inline-save-status{display:none!important}.st-key-web_generate,.st-key-app_generate{bottom:84px!important}
 }
@@ -370,6 +372,7 @@ if active_port == "app":
             "地区ROI_印度": 1.0,
             "地区ROI_印度尼西亚": 1.0,
         }
+        st.markdown('<div id="app-targets" class="target-anchor"></div>', unsafe_allow_html=True)
         with st.expander("APP月度目标", expanded=False):
             st.caption(
                 "可以从Excel复制一整列目标，粘贴到下面的批量框后应用；"
@@ -517,6 +520,10 @@ if active_port == "app":
 
     if st.session_state.get("app_report"):
         filename, content = st.session_state["app_report"]
+        st.markdown(
+            "<style>.st-key-save_app_manual,.inline-save-status,.fixed-footer{display:none!important}</style>",
+            unsafe_allow_html=True,
+        )
         with app_main:
             for warning in st.session_state.get("app_report_warnings", []):
                 st.warning(warning)
@@ -541,7 +548,9 @@ if active_port == "app":
             )
 
     st.markdown(
-        '<div class="fixed-footer"><span>APP与WEB数据相互独立</span><b>DATA AUTOMATION · APP工作台</b></div>',
+        '<div class="fixed-footer"><span>APP与WEB数据相互独立'
+        '<a href="#app-targets">跳到APP月度目标</a></span>'
+        '<b>DATA AUTOMATION · APP工作台</b></div>',
         unsafe_allow_html=True,
     )
     st.stop()
@@ -657,6 +666,7 @@ with main_col:
                     key=manual_key,
                 )
 
+    st.markdown('<div id="web-targets" class="target-anchor"></div>', unsafe_allow_html=True)
     with st.expander("月度目标设置（每月填写一次）", expanded=False):
         month_key = target_month_end.strftime("%Y-%m")
         all_targets = load_targets()
@@ -983,6 +993,10 @@ if generate_clicked:
 
 if st.session_state.get("reports"):
     reports = st.session_state["reports"]
+    st.markdown(
+        "<style>.st-key-save_web_manual,.inline-save-status,.fixed-footer{display:none!important}</style>",
+        unsafe_allow_html=True,
+    )
     with main_col:
         for warning in st.session_state.get("warnings", []): st.warning(warning)
         st.markdown('<div id="report-result"></div><div class="section-label">03 报告已就绪</div><div class="section-note">可分别下载Excel，也可以一次下载完整压缩包。</div>', unsafe_allow_html=True)
@@ -998,4 +1012,10 @@ if st.session_state.get("reports"):
             for filename, content in reports.items(): archive.writestr(filename, content)
         st.download_button("一键下载五份周报（ZIP）", bundle.getvalue(), f"末次归因周报_{start:%Y.%m.%d}-{end:%Y.%m.%d}.zip", "application/zip", type="primary", use_container_width=True)
 
-st.markdown('<div id="help"></div><div class="fixed-footer"><span>文件仅用于本次浏览器会话 · 刷新页面后需重新上传</span><b>DATA AUTOMATION · 周报工作台</b></div>', unsafe_allow_html=True)
+st.markdown(
+    '<div id="help"></div><div class="fixed-footer"><span>'
+    '文件仅用于本次浏览器会话 · 刷新页面后需重新上传'
+    '<a href="#web-targets">跳到月度目标</a></span>'
+    '<b>DATA AUTOMATION · 周报工作台</b></div>',
+    unsafe_allow_html=True,
+)
