@@ -439,7 +439,7 @@ def _natural_report(dates, metrics, monthly_targets):
         if metric in count_metrics:
             for col in (2, 3, 5, 6): ws.cell(row, col).number_format = "#,##0"
         if metric in currency_metrics:
-            for col in (2, 3, 5, 6): ws.cell(row, col).number_format = '"$"#,##0.00'
+            for col in (2, 3, 5, 6): ws.cell(row, col).number_format = '"$"#,##0'
         if metric in integer_currency_metrics:
             for col in (2, 3, 5, 6): ws.cell(row, col).number_format = '"$"#,##0'
         if metric == "新用户ROI":
@@ -455,6 +455,13 @@ def _natural_report(dates, metrics, monthly_targets):
     # H列只用于模板维护时记录统计口径，最终下载表不展示。
     if ws.max_column >= 8:
         ws.delete_cols(8, ws.max_column - 7)
+    # 对外输出统一使用宋体11号，保留模板原有加粗、颜色等层级样式。
+    for row in ws.iter_rows(min_row=1, max_row=ws.max_row, min_col=1, max_col=7):
+        for cell in row:
+            font = copy(cell.font)
+            font.name = "宋体"
+            font.sz = 11
+            cell.font = font
     ws.title = "自然来源周报"
     return wb
 
