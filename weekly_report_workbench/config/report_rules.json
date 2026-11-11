@@ -64,7 +64,14 @@
     "default_channel": "SEO"
   },
   "sem_cost": {
-    "google_exclude_contains": ["KOL", "generic"]
+    "google_exclude_contains": ["KOL", "generic"],
+    "hkmt_google_campaign_contains": [
+      "YM-CN-search-CV-tail-0907homepage",
+      "YM-CN-Pmax-CT-1020"
+    ]
+  },
+  "cost_reclassification": {
+    "google_to_seo_weekly": 350
   },
   "regions": {
     "english": ["美国", "英国", "澳大利亚", "加拿大", "印度", "其他", "越南", "沙特", "沙特阿拉伯", "阿联酋", "阿拉伯联合酋长国", "荷兰", "缅甸", "土耳其", "埃及", "卡塔尔", "瑞典", "科威特", "柬埔寨", "巴基斯坦", "瑞士", "意大利"],
