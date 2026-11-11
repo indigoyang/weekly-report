@@ -158,7 +158,7 @@ html{font-size:15px!important}
 [class*="st-key-clear_"] .stButton>button{min-height:30px!important;height:30px!important;background:transparent!important;border:0!important;box-shadow:none!important;color:#6b7280!important;font-size:10px!important;padding:0 8px!important}
 [class*="st-key-clear_"] .stButton>button:hover{color:#111!important;background:#ecebe5!important;transform:none!important;box-shadow:none!important}
 
-/* 固定底部操作栏；页面预留175px底部空间，避免遮住目标、生成和下载区域 */
+/* 固定底部操作栏；使用真实占位元素扩展滚动区，避免遮住目标、生成和下载区域 */
 .fixed-footer{position:fixed!important;left:224px!important;right:0!important;bottom:0!important;height:72px!important;margin:0!important;padding:0 max(32px,calc((100vw - 224px - 1200px)/2 + 32px))!important;background:rgba(246,245,240,.96)!important;backdrop-filter:blur(10px)!important;border-top:1px solid #1112!important;z-index:998!important;display:flex!important;align-items:center!important}
 .fixed-footer span{font-size:11px!important;color:#6b7280!important}.fixed-footer b{display:none!important}
 .fixed-footer a{color:#111!important;font-weight:700!important;text-decoration:underline!important;margin-left:12px!important}
@@ -167,13 +167,14 @@ html{font-size:15px!important}
 .st-key-save_web_manual .stButton>button:before,.st-key-save_app_manual .stButton>button:before{content:'⇩';font-size:16px;margin-right:8px}
 .inline-save-status{position:fixed;right:max(307px,calc((100vw - 224px - 1200px)/2 + 307px));bottom:15px;width:390px;height:42px;z-index:1000;display:flex;align-items:center;padding:0 14px;border:1px solid #badb88;background:#edf9e9;color:#245c47;font-size:12px;line-height:1.35}
 .target-anchor{height:1px;scroll-margin-top:90px}
+.page-bottom-spacer{display:block!important;width:100%!important;height:240px!important;min-height:240px!important;clear:both!important;pointer-events:none!important}
 /* 右侧生成按钮随页面保持在固定栏上方，长表单下也能随时操作 */
 .st-key-web_generate,.st-key-app_generate{position:sticky!important;bottom:88px!important;z-index:900!important;background:#f6f5f0!important;padding:8px 0 3px!important}
 
 @media(max-width:900px){
   [data-testid="stSidebar"]{display:none!important}.block-container{max-width:100%!important;padding:24px 16px 240px!important}.topbar h1{font-size:31px!important}.steps{overflow-x:auto!important}
   [data-testid="stVerticalBlockBorderWrapper"]{padding:15px!important;box-shadow:3px 3px 0 #111!important}[data-testid="stFileUploader"]{min-height:150px!important;padding:22px!important}
-  .fixed-footer{left:0!important;padding:0 16px!important}.fixed-footer span{display:none!important}.st-key-save_web_manual,.st-key-save_app_manual{right:16px!important;width:210px!important}.inline-save-status{display:none!important}.st-key-web_generate,.st-key-app_generate{bottom:84px!important}
+  .fixed-footer{left:0!important;padding:0 16px!important}.fixed-footer span{display:none!important}.st-key-save_web_manual,.st-key-save_app_manual{right:16px!important;width:210px!important}.inline-save-status{display:none!important}.st-key-web_generate,.st-key-app_generate{bottom:84px!important}.page-bottom-spacer{height:210px!important;min-height:210px!important}
 }
 </style>
 """, unsafe_allow_html=True)
@@ -521,7 +522,7 @@ if active_port == "app":
     if st.session_state.get("app_report"):
         filename, content = st.session_state["app_report"]
         st.markdown(
-            "<style>.st-key-save_app_manual,.inline-save-status,.fixed-footer{display:none!important}</style>",
+            "<style>.st-key-save_app_manual,.inline-save-status,.fixed-footer,.page-bottom-spacer{display:none!important}</style>",
             unsafe_allow_html=True,
         )
         with app_main:
@@ -547,6 +548,7 @@ if active_port == "app":
                 type="primary", use_container_width=True, key="download_app_report",
             )
 
+    st.markdown('<div class="page-bottom-spacer" aria-hidden="true"></div>', unsafe_allow_html=True)
     st.markdown(
         '<div class="fixed-footer"><span>APP与WEB数据相互独立'
         '<a href="#app-targets">跳到APP月度目标</a></span>'
@@ -994,7 +996,7 @@ if generate_clicked:
 if st.session_state.get("reports"):
     reports = st.session_state["reports"]
     st.markdown(
-        "<style>.st-key-save_web_manual,.inline-save-status,.fixed-footer{display:none!important}</style>",
+        "<style>.st-key-save_web_manual,.inline-save-status,.fixed-footer,.page-bottom-spacer{display:none!important}</style>",
         unsafe_allow_html=True,
     )
     with main_col:
@@ -1012,6 +1014,7 @@ if st.session_state.get("reports"):
             for filename, content in reports.items(): archive.writestr(filename, content)
         st.download_button("一键下载五份周报（ZIP）", bundle.getvalue(), f"末次归因周报_{start:%Y.%m.%d}-{end:%Y.%m.%d}.zip", "application/zip", type="primary", use_container_width=True)
 
+st.markdown('<div class="page-bottom-spacer" aria-hidden="true"></div>', unsafe_allow_html=True)
 st.markdown(
     '<div id="help"></div><div class="fixed-footer"><span>'
     '文件仅用于本次浏览器会话 · 刷新页面后需重新上传'
