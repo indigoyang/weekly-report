@@ -657,7 +657,9 @@ def create_report(dates, metrics,
         if mtd_val is None:
             return None
         if is_pct:
-            return (mtd_val * 100) / target_val
+            # ROI/费率目标兼容两种填法：1.2 和 120 都代表120%。
+            target_pct = target_val * 100 if abs(target_val) <= 5 else target_val
+            return (mtd_val * 100) / target_pct
         else:
             return mtd_val / target_val
 
@@ -681,8 +683,9 @@ def create_report(dates, metrics,
         if val is None:
             return "-"
         if fmt_type == 'pct':
-            # 全渠道目标统一显示为整百分比，例如100%，不显示100.0%。
-            return f"{int(round(val))}%"
+            # 全渠道目标兼容1.2和120两种输入，统一显示120%。
+            target_pct = val * 100 if abs(val) <= 5 else val
+            return f"{int(round(target_pct))}%"
         elif fmt_type == 'dollar':
             return f"${int(val)}"
         else:
