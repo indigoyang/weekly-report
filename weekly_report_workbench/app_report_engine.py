@@ -204,6 +204,13 @@ def prepare_app_costs(
 
     google["date"] = pd.to_datetime(google["date"], errors="coerce")
     google["cost"] = pd.to_numeric(google["cost"], errors="coerce").fillna(0.0)
+    # Google 分天分地区导出同时包含地区明细和多组每日总计行。
+    # 地区明细已经覆盖完整消耗，必须排除“总计：”行，否则总消耗会重复累加。
+    google_total_rows = google["region"].fillna("").astype(str).str.strip().str.startswith("总计：")
+    removed_google_totals = int(google_total_rows.sum())
+    if removed_google_totals:
+        google = google.loc[~google_total_rows].copy()
+        warnings.append(f"Google消耗已排除 {removed_google_totals} 行分天总计，仅按分地区明细汇总。")
     google["region_group"] = (
         google["region"].fillna("").astype(str).str.strip().map(
             lambda value: GOOGLE_REGION_MAP.get(value, GOOGLE_REGION_MAP.get(value.lower(), "其他"))
