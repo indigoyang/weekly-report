@@ -98,8 +98,11 @@ def prepare_data(reg, orders, google, bing):
         warnings.append("订单金额使用订单表的“兑换美元”字段。")
     bing_aliases = {
         "Day": "stat_date",
+        "Date": "stat_date",
         "Campaign": "ad_campaign",
+        "Campaign name": "ad_campaign",
         "Spend": "cost",
+        "Country/region (physical location)": "region",
         "日期": "stat_date",
         "国家/地区（实际位置）": "region",
         "国家/地区(实际位置)": "region",
