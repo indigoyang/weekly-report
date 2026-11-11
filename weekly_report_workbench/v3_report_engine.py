@@ -184,6 +184,14 @@ def _google_period(google, start, end):
     return g[~mask]
 
 
+def _google_to_seo_adjustment(start, end):
+    """Google 转 SEO 的周调整额按自然日均分，便于处理跨月 MTD。"""
+    config = ACTIVE_RULES.get("cost_reclassification", {})
+    weekly_amount = float(config.get("google_to_seo_weekly", config.get("google_to_seo", 0)) or 0)
+    days = max((end - start).days + 1, 0)
+    return weekly_amount * days / 7
+
+
 def _bing_period(bing, start, end):
     return bing[_between(bing["stat_date"], start, end)].copy()
 
@@ -195,6 +203,10 @@ def _costs(google, bing, start, end):
     google_total = float(g.loc[g_total_rows, "费用"].sum())
     if not g_total_rows.any():
         google_total = float(g[~g["地理位置"].fillna("").astype(str).str.startswith("总计")]["费用"].sum())
+    # 固定成本重分类：从 Google/SEM 成本转入 SEO 外链成本。
+    # 同一笔金额会在生成全渠道报表时加回 SEO，因此总成本不变。
+    google_to_seo = _google_to_seo_adjustment(start, end)
+    google_total -= google_to_seo
     bing_total = float(b.loc[b["ad_campaign"].fillna("").astype(str).ne("Search total"), "cost"].sum())
     return g, b, google_total, bing_total
 
@@ -625,7 +637,17 @@ def _region_metrics(reg, orders, google, bing, start, end, region):
     g, b, _, _ = _costs(google, bing, start, end)
     google_names = {"港澳台": {"香港","台湾","澳门"}}.get(region, countries)
     bing_names = {"美国":{"United States"},"印度":{"India"},"港澳台":{"Taiwan","Hong Kong SAR","Macao SAR"},"印度尼西亚":{"Indonesia"},"马来西亚":{"Malaysia"}}[region]
-    cost = float(g.loc[g["地理位置"].isin(google_names), "费用"].sum()) + float(b.loc[b["ad_campaign"].fillna("").astype(str).ne("Search total") & b["region"].isin(bing_names), "cost"].sum())
+    region_google = g[g["地理位置"].isin(google_names)].copy()
+    if region == "港澳台":
+        allowed_campaigns = ACTIVE_RULES.get("sem_cost", {}).get("hkmt_google_campaign_contains", [])
+        if allowed_campaigns:
+            campaign = region_google["广告系列"].fillna("").astype(str)
+            allowed = pd.Series(False, index=region_google.index)
+            for keyword in allowed_campaigns:
+                if str(keyword).strip():
+                    allowed |= campaign.str.contains(str(keyword).strip(), case=False, regex=False)
+            region_google = region_google[allowed]
+    cost = float(region_google["费用"].sum()) + float(b.loc[b["ad_campaign"].fillna("").astype(str).ne("Search total") & b["region"].isin(bing_names), "cost"].sum())
     reg_count, paid, revenue, new_paid, new_rev = len(r), len(o), float(o["订单金额"].sum()), len(new), float(new["订单金额"].sum())
     base_all_new = orders[_between(orders["订单生成时间"], start, end) & orders["__web"] & orders["地区"].isin(countries)]
     all_new = base_all_new[_new_user_mask(base_all_new)]
@@ -730,10 +752,15 @@ def generate_v3_reports(reg, orders, google, bing, mobile, start, end, inputs, t
     natural_cost_mtd = natural_metrics.get("成本总计_MTD", 0) or 0
 
     all_metrics = _all_metrics(reg, orders, google, bing, dates, inputs)
+    google_to_seo_tw = _google_to_seo_adjustment(dates["this_week_start"], dates["this_week_end"])
+    google_to_seo_lw = _google_to_seo_adjustment(dates["last_week_start"], dates["last_week_end"])
+    google_to_seo_mtd = _google_to_seo_adjustment(dates["month_start"], dates["month_end"])
     all_wb = ALL_MOD.create_report(
         dates, all_metrics,
         inputs.get("commission_本周",0), inputs.get("commission_上周",0), inputs.get("commission_MTD",0),
-        inputs.get("seo_本周",0), inputs.get("seo_上周",0), inputs.get("seo_MTD",0),
+        inputs.get("seo_本周",0) + google_to_seo_tw,
+        inputs.get("seo_上周",0) + google_to_seo_lw,
+        inputs.get("seo_MTD",0) + google_to_seo_mtd,
         0, 0, 0,
         inputs.get("refund_本周",0), inputs.get("refund_上周",0), inputs.get("refund_MTD",0), monthly_all,
         roi_extra_cost_this_week=natural_cost_tw,
