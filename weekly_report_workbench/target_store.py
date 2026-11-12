@@ -55,9 +55,10 @@ SEM_TARGET_METRICS = [
 
 NATURAL_TARGET_METRICS = [
     "已发布达人数量", "当周曝光", "CPM", "WEB（品牌词搜索量）",
-    "注册总计", "WEB自然量注册数", "APP自然量注册数",
-    "WEB自然来源新用户收入", "WEB新老用户收入（除订阅）", "APP自然量收入",
-    "成本总计", "达人合作费", "投流费", "新用户ROI",
+    "注册总计", "WEB-KOL注册量（KOL：KOL+Direct +Social_Organic）", "APP自然量注册量",
+    "WEB-KOL新用户收入", "WEB-KOL新老用户收入（除订阅）",
+    "APP自然量收入（没办法拆分新用户）", "成本总计", "达人合作费",
+    "UGC专项费用", "投流费", "新用户ROI",
 ]
 
 NATURAL_TARGET_ROWS = [

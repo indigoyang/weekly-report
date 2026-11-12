@@ -332,14 +332,14 @@ def _all_metrics(reg, orders, google, bing, dates, inputs):
 
 
 def _natural_metrics(reg, orders, dates, inputs):
-    """自然来源周报：WEB自动统计，APP、达人和品牌词数据由页面手动补充。"""
+    """KOL周报：WEB按KOL口径自动统计，其余数据由页面手动补充。"""
     if "末次来源类型" not in reg.columns:
         raise ValueError("自然来源周报需要注册数据字段：末次来源类型")
 
     result = defaultdict(float)
     attributed = orders.copy()
     attributed["收入归因"] = _attrib(attributed)
-    natural_channels = {"SEO", "KOL", "Unassigned", "Affiliate", "Blank"}
+    kol_sources = {"KOL", "DIRECT", "SOCIAL_ORGANIC"}
     periods = {
         "本周": (dates["this_week_start"], dates["this_week_end"]),
         "上周": (dates["last_week_start"], dates["last_week_end"]),
@@ -348,17 +348,23 @@ def _natural_metrics(reg, orders, dates, inputs):
     for label, (period_start, period_end) in periods.items():
         period_reg = reg[_between(reg["注册时间"], period_start, period_end) & reg["__web"]]
         last_source = period_reg["末次来源类型"].fillna("").astype(str).str.strip().str.upper()
-        web_natural_reg = int(last_source.ne("SEM").sum())
+        web_kol_reg = int(last_source.isin(kol_sources).sum())
 
         period_orders = attributed[
             _between(attributed["订单生成时间"], period_start, period_end)
             & attributed["__web"]
         ]
         new_orders = period_orders[_new_user_mask(period_orders)]
-        natural_new = new_orders[new_orders["收入归因"].isin(natural_channels)]
-        natural_non_subscription = period_orders[
-            period_orders["收入归因"].isin(natural_channels)
-        ]
+        kol_new = new_orders[new_orders["收入归因"].eq("KOL")]
+        kol_orders = period_orders[period_orders["收入归因"].eq("KOL")]
+        subscription_values = ACTIVE_RULES.get("subscription", {}).get(
+            "payment_location_contains", ["订阅"]
+        )
+        payment_location = kol_orders["支付位置"].fillna("").astype(str)
+        subscription_mask = pd.Series(False, index=kol_orders.index)
+        for value in subscription_values:
+            subscription_mask |= payment_location.str.contains(str(value), case=False, na=False)
+        kol_non_subscription = kol_orders[~subscription_mask]
 
         creators = float(inputs.get(f"natural_creators_{label}", 0))
         exposure = float(inputs.get(f"natural_exposure_{label}", 0))
@@ -366,26 +372,28 @@ def _natural_metrics(reg, orders, dates, inputs):
         app_reg = float(inputs.get(f"natural_app_reg_{label}", 0))
         app_revenue = float(inputs.get(f"natural_app_revenue_{label}", 0))
         creator_cost = float(inputs.get(f"natural_creator_cost_{label}", 0))
+        ugc_cost = float(inputs.get(f"natural_ugc_cost_{label}", 0))
         boost_cost = float(inputs.get(f"natural_boost_cost_{label}", 0))
-        total_cost = creator_cost + boost_cost
+        total_cost = creator_cost + ugc_cost + boost_cost
 
         result[f"已发布达人数量_{label}"] = creators
         result[f"当周曝光_{label}"] = exposure
         result[f"CPM_{label}"] = safe_div(total_cost * 1000, exposure) if exposure else None
         result[f"WEB（品牌词搜索量）_{label}"] = brand_search
-        result[f"WEB自然量注册数_{label}"] = web_natural_reg
-        result[f"APP自然量注册数_{label}"] = app_reg
-        result[f"注册总计_{label}"] = web_natural_reg + app_reg
-        result[f"WEB自然来源新用户收入_{label}"] = float(natural_new["订单金额"].sum())
-        result[f"WEB新老用户收入（除订阅）_{label}"] = float(
-            natural_non_subscription["订单金额"].sum()
+        result[f"WEB-KOL注册量（KOL：KOL+Direct +Social_Organic）_{label}"] = web_kol_reg
+        result[f"APP自然量注册量_{label}"] = app_reg
+        result[f"注册总计_{label}"] = web_kol_reg + app_reg
+        result[f"WEB-KOL新用户收入_{label}"] = float(kol_new["订单金额"].sum())
+        result[f"WEB-KOL新老用户收入（除订阅）_{label}"] = float(
+            kol_non_subscription["订单金额"].sum()
         )
-        result[f"APP自然量收入_{label}"] = app_revenue
+        result[f"APP自然量收入（没办法拆分新用户）_{label}"] = app_revenue
         result[f"达人合作费_{label}"] = creator_cost
+        result[f"UGC专项费用_{label}"] = ugc_cost
         result[f"投流费_{label}"] = boost_cost
         result[f"成本总计_{label}"] = total_cost
         result[f"新用户ROI_{label}"] = (
-            safe_div(float(natural_new["订单金额"].sum()) + app_revenue, total_cost)
+            safe_div(float(kol_new["订单金额"].sum()) + app_revenue, total_cost)
             if total_cost else None
         )
     return result
@@ -406,24 +414,33 @@ def _natural_report(dates, metrics, monthly_targets):
     if not NATURAL_TEMPLATE.exists():
         raise FileNotFoundError(f"找不到自然来源模板：{NATURAL_TEMPLATE}")
     wb = load_workbook(NATURAL_TEMPLATE)
-    ws = wb.active
-    fallback_targets = {ws.cell(row, 1).value: ws.cell(row, 6).value for row in range(3, 18)}
+    ws = wb["Sheet2"] if "Sheet2" in wb.sheetnames else wb.active
+    for other_ws in list(wb.worksheets):
+        if other_ws is not ws:
+            wb.remove(other_ws)
+    fallback_targets = {
+        str(ws.cell(row, 1).value).strip(): ws.cell(row, 6).value
+        for row in range(2, 18)
+        if ws.cell(row, 1).value is not None
+    }
     row_map = {
-        3: "已发布达人数量", 4: "当周曝光", 5: "CPM",
-        6: "WEB（品牌词搜索量）", 7: "注册总计", 8: "WEB自然量注册数",
-        9: "APP自然量注册数", 10: "WEB自然来源新用户收入",
-        11: "WEB新老用户收入（除订阅）", 12: "APP自然量收入",
-        13: "成本总计", 14: "达人合作费", 15: "投流费", 17: "新用户ROI",
+        2: "已发布达人数量", 3: "当周曝光", 4: "CPM",
+        5: "WEB（品牌词搜索量）", 6: "注册总计",
+        7: "WEB-KOL注册量（KOL：KOL+Direct +Social_Organic）",
+        8: "APP自然量注册量", 9: "WEB-KOL新用户收入",
+        10: "WEB-KOL新老用户收入（除订阅）",
+        11: "APP自然量收入（没办法拆分新用户）", 12: "成本总计",
+        13: "达人合作费", 14: "UGC专项费用", 15: "投流费", 17: "新用户ROI",
     }
     count_metrics = {
         "已发布达人数量", "当周曝光", "WEB（品牌词搜索量）",
-        "注册总计", "WEB自然量注册数", "APP自然量注册数",
+        "注册总计", "WEB-KOL注册量（KOL：KOL+Direct +Social_Organic）", "APP自然量注册量",
     }
     integer_currency_metrics = {
-        "CPM", "WEB自然来源新用户收入", "WEB新老用户收入（除订阅）",
-        "APP自然量收入",
+        "CPM", "WEB-KOL新用户收入", "WEB-KOL新老用户收入（除订阅）",
+        "APP自然量收入（没办法拆分新用户）",
     }
-    currency_metrics = {"成本总计", "达人合作费", "投流费"}
+    currency_metrics = {"成本总计", "达人合作费", "UGC专项费用", "投流费"}
 
     for row, metric in row_map.items():
         values = [metrics.get(f"{metric}_本周"), metrics.get(f"{metric}_上周"), metrics.get(f"{metric}_MTD")]
@@ -446,6 +463,8 @@ def _natural_report(dates, metrics, monthly_targets):
             for col in (2, 3, 5, 6): ws.cell(row, col).number_format = "0%"
         for col in (4, 7): ws.cell(row, col).number_format = "0%"
 
+    ws["A1"] = "KOL表"
+    ws["E1"] = f"{dates['month_end'].month}月MTD"
     ws["B16"] = _natural_ratio(metrics["达人合作费_本周"], metrics["投流费_本周"])
     ws["C16"] = _natural_ratio(metrics["达人合作费_上周"], metrics["投流费_上周"])
     ws["D16"] = "/"
@@ -455,6 +474,20 @@ def _natural_report(dates, metrics, monthly_targets):
     # H列只用于模板维护时记录统计口径，最终下载表不展示。
     if ws.max_column >= 8:
         ws.delete_cols(8, ws.max_column - 7)
+    # Sheet2 的H列维护说明很长，源文件保存时把数据列和行高一并撑大；
+    # 下载表移除说明列后恢复成适合周报阅读的一页宽版式。
+    ws.column_dimensions["A"].width = 58
+    for column in ("B", "C", "D", "E", "F", "G"):
+        ws.column_dimensions[column].width = 16
+    for row in range(1, 18):
+        ws.row_dimensions[row].height = 22
+    ws.row_dimensions[7].height = 34
+    ws.row_dimensions[9].height = 26
+    ws.row_dimensions[10].height = 26
+    ws.page_setup.orientation = "landscape"
+    ws.page_setup.fitToWidth = 1
+    ws.page_setup.fitToHeight = 0
+    ws.sheet_properties.pageSetUpPr.fitToPage = True
     # 对外输出统一使用宋体11号，保留模板原有加粗、颜色等层级样式。
     for row in ws.iter_rows(min_row=1, max_row=ws.max_row, min_col=1, max_col=7):
         for cell in row:

@@ -646,8 +646,8 @@ with main_col:
 
     with st.expander("自然来源周报补充数据", expanded=False):
         st.caption(
-            "APP数据、达人数据与品牌词搜索量暂时没有数据库来源，按本周、上周和MTD手动填写。"
-            "达人合作费 + 投流费会作为自然来源成本总计，只加入全渠道ROI分母，不计入表内展示的总成本。"
+            "APP数据、达人数据、UGC费用与品牌词搜索量暂时没有数据库来源，按本周、上周和MTD手动填写。"
+            "达人合作费 + UGC专项费用 + 投流费会作为KOL表成本总计，只加入全渠道ROI分母，不计入表内展示的总成本。"
         )
         natural_groups = [
             ("natural_creators", "已发布达人数量"),
@@ -656,6 +656,7 @@ with main_col:
             ("natural_app_reg", "APP自然量注册数"),
             ("natural_app_revenue", "APP自然量新用户收入"),
             ("natural_creator_cost", "达人合作费"),
+            ("natural_ugc_cost", "UGC专项费用"),
             ("natural_boost_cost", "投流费"),
         ]
         for prefix, title in natural_groups:
