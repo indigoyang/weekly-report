@@ -535,11 +535,11 @@ if active_port == "app":
                 st.dataframe(cost_table, hide_index=True, use_container_width=True)
             st.markdown(
                 '<div class="section-label">04 APP表格已就绪</div>'
-                '<div class="section-note">工作簿包含APP投放表和APP总数据表。</div>',
+                '<div class="section-note">工作簿包含APP投放表、APP总数据表和APP分国家表。</div>',
                 unsafe_allow_html=True,
             )
             st.markdown(
-                f'<div class="download-card"><b>APP投放与总数据</b><br><span>Excel · {len(content)/1024:.1f} KB</span></div>',
+                f'<div class="download-card"><b>APP投放、总数据与分国家数据</b><br><span>Excel · {len(content)/1024:.1f} KB</span></div>',
                 unsafe_allow_html=True,
             )
             st.download_button(

@@ -14,6 +14,18 @@ APP_TEMPLATE = ROOT / "assets" / "APP投放表格.xlsx"
 
 PERIODS = ("本周", "上周", "MTD")
 REGIONS = ("台湾", "韩国", "印度", "印度尼西亚")
+APP_COUNTRY_ROWS = {
+    4: "中国台湾",
+    5: "印度",
+    6: "印度尼西亚",
+    7: "美国",
+    8: "中国香港",
+    9: "马来西亚",
+    10: "阿联酋",
+    11: "韩国",
+    12: "巴西",
+    13: "菲律宾",
+}
 
 GOOGLE_REGION_MAP = {
     "台湾": "台湾", "中国台湾": "台湾", "taiwan": "台湾",
@@ -44,6 +56,9 @@ ENGLISH_ROI_COUNTRIES = {
 }
 
 COUNTRY_ALIASES = {
+    "TW": "中国台湾", "TWN": "中国台湾", "TAIWAN": "中国台湾", "台湾": "中国台湾",
+    "HK": "中国香港", "HKG": "中国香港", "HONG KONG": "中国香港",
+    "HONG KONG SAR": "中国香港", "香港": "中国香港",
     "GB": "英国", "GBR": "英国", "UK": "英国", "UNITED KINGDOM": "英国",
     "US": "美国", "USA": "美国", "UNITED STATES": "美国",
     "AU": "澳大利亚", "AUS": "澳大利亚", "AUSTRALIA": "澳大利亚",
@@ -300,15 +315,23 @@ def _sum_cost_group(frame: pd.DataFrame, start: date, end: date, roi_group: str)
     return float(frame.loc[mask, "cost"].sum())
 
 
+def _sum_country_cost(frame: pd.DataFrame, start: date, end: date, country: str) -> float:
+    mask = frame["date"].dt.date.between(start, end)
+    canonical_country = frame["region"].map(_canonical_country)
+    return float(frame.loc[mask & canonical_country.eq(country), "cost"].sum())
+
+
 def _sum_order_revenue(
     orders: pd.DataFrame, start: date, end: date, *, new_only: bool = False,
-    roi_group: str | None = None,
+    roi_group: str | None = None, country: str | None = None,
 ) -> float:
     mask = orders["app_date"].dt.date.between(start, end)
     if new_only:
         mask &= orders["注册转化周期"].eq(0)
     if roi_group is not None:
         mask &= orders["roi_group"].eq(roi_group)
+    if country is not None:
+        mask &= orders["国家"].map(_canonical_country).eq(country)
     return float(orders.loc[mask, "订单金额"].sum())
 
 
@@ -502,6 +525,54 @@ def generate_app_report(
             total_sheet.cell(row, column).number_format = "0%"
     if total_sheet.max_column >= 8:
         total_sheet.delete_cols(8, total_sheet.max_column - 7)
+
+    # Sheet3：所选月份MTD的APP分国家营收、消耗和ROI。
+    country_sheet = workbook["Sheet3"]
+    country_sheet["B2"] = "新老用户含订阅营收"
+    country_sheet["E3"] = "（含订阅）"
+    mtd_start, mtd_end = ranges["MTD"]
+    for row, country in APP_COUNTRY_ROWS.items():
+        all_revenue = _sum_order_revenue(orders, mtd_start, mtd_end, country=country)
+        new_revenue = _sum_order_revenue(
+            orders, mtd_start, mtd_end, new_only=True, country=country
+        )
+        country_cost = sum(
+            _sum_country_cost(frame, mtd_start, mtd_end, country)
+            for frame in (google, meta, asa)
+        )
+        country_sheet.cell(row, 2, all_revenue)
+        country_sheet.cell(row, 3, new_revenue)
+        country_sheet.cell(row, 4, country_cost)
+        country_sheet.cell(row, 5, _safe_div(all_revenue, country_cost))
+        country_sheet.cell(row, 6, _safe_div(new_revenue, country_cost))
+
+    total_all_revenue = _sum_order_revenue(orders, mtd_start, mtd_end)
+    total_new_revenue = _sum_order_revenue(orders, mtd_start, mtd_end, new_only=True)
+    total_mtd_cost = sum(_sum_cost(frame, mtd_start, mtd_end) for frame in (google, meta, asa))
+    for column, value in enumerate(
+        (
+            total_all_revenue,
+            total_new_revenue,
+            total_mtd_cost,
+            _safe_div(total_all_revenue, total_mtd_cost),
+            _safe_div(total_new_revenue, total_mtd_cost),
+        ),
+        start=2,
+    ):
+        country_sheet.cell(14, column, value)
+    for row in range(4, 15):
+        for column in (2, 3, 4):
+            country_sheet.cell(row, column).number_format = '$#,##0'
+        for column in (5, 6):
+            country_sheet.cell(row, column).number_format = "0%"
+    # 第17行是模板维护用SQL说明，不放进最终下载表。
+    if country_sheet.max_row > 14:
+        country_sheet.delete_rows(15, country_sheet.max_row - 14)
+    country_sheet.print_area = "A2:F14"
+    country_sheet.page_setup.orientation = "landscape"
+    country_sheet.page_setup.fitToWidth = 1
+    country_sheet.page_setup.fitToHeight = 1
+    country_sheet.sheet_properties.pageSetUpPr.fitToPage = True
 
     output = BytesIO()
     workbook.save(output)
