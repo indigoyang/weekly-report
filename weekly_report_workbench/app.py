@@ -10,6 +10,7 @@ import pandas as pd
 
 from report_engine import read_uploads
 from app_report_engine import generate_app_report, read_app_uploads
+from total_report_engine import generate_total_report
 from v3_report_engine import generate_v3_reports
 from target_store import (
     ALL_CHANNEL_TARGET_METRICS,
@@ -28,13 +29,46 @@ st.set_page_config(page_title="数据自动化", page_icon="A", layout="wide", i
 
 # 报告结构升级时清理当前浏览器会话里旧版本生成的结果。
 # 否则Streamlit热更新后，页面可能继续显示更新前缓存的4份报告。
-REPORT_SCHEMA_VERSION = "2026-11-10-app-target-download-v8"
+REPORT_SCHEMA_VERSION = "2026-11-16-app-web-total-v9"
 if st.session_state.get("report_schema_version") != REPORT_SCHEMA_VERSION:
     st.session_state.pop("reports", None)
     st.session_state.pop("warnings", None)
     st.session_state.pop("app_report", None)
     st.session_state.pop("app_report_warnings", None)
+    st.session_state.pop("web_total_summary", None)
+    st.session_state.pop("app_total_summary", None)
+    st.session_state.pop("total_report", None)
     st.session_state["report_schema_version"] = REPORT_SCHEMA_VERSION
+
+
+def refresh_total_report():
+    """两端报告周期一致时，刷新APP&WEB总数据输出。"""
+    web_summary = st.session_state.get("web_total_summary")
+    app_summary = st.session_state.get("app_total_summary")
+    web_period = st.session_state.get("web_report_period")
+    app_period = st.session_state.get("app_report_period")
+    if not web_summary or not app_summary or not web_period or web_period != app_period:
+        st.session_state.pop("total_report", None)
+        return False
+    fixed_costs = st.session_state.get("app_fixed_costs", {})
+    st.session_state["total_report"] = generate_total_report(
+        web_summary, app_summary, fixed_costs, web_period[0], web_period[1]
+    )
+    return True
+
+
+def invalidate_app_outputs():
+    st.session_state.pop("app_report", None)
+    st.session_state.pop("app_total_summary", None)
+    st.session_state.pop("app_report_period", None)
+    st.session_state.pop("total_report", None)
+
+
+def invalidate_web_outputs():
+    st.session_state.pop("reports", None)
+    st.session_state.pop("web_total_summary", None)
+    st.session_state.pop("web_report_period", None)
+    st.session_state.pop("total_report", None)
 admin_mode = str(st.query_params.get("admin", "")) == "1"
 active_port = str(st.query_params.get("port", "web")).lower()
 if active_port not in {"web", "app"}:
@@ -252,7 +286,7 @@ if active_port == "app":
                     "删除已上传的Google文件", key="clear_app_google", use_container_width=True
                 ):
                     st.session_state["app_google_upload_version"] = app_google_upload_version + 1
-                    st.session_state.pop("app_report", None)
+                    invalidate_app_outputs()
                     st.rerun()
             with app_u2:
                 app_meta_upload_version = st.session_state.get("app_meta_upload_version", 0)
@@ -266,7 +300,7 @@ if active_port == "app":
                     "删除已上传的Meta文件", key="clear_app_meta", use_container_width=True
                 ):
                     st.session_state["app_meta_upload_version"] = app_meta_upload_version + 1
-                    st.session_state.pop("app_report", None)
+                    invalidate_app_outputs()
                     st.rerun()
             with app_u3:
                 app_asa_upload_version = st.session_state.get("app_asa_upload_version", 0)
@@ -280,7 +314,7 @@ if active_port == "app":
                     "删除已上传的ASA文件", key="clear_app_asa", use_container_width=True
                 ):
                     st.session_state["app_asa_upload_version"] = app_asa_upload_version + 1
-                    st.session_state.pop("app_report", None)
+                    invalidate_app_outputs()
                     st.rerun()
             app_uploaded_count = sum(
                 bool(value) for value in (app_google_files, app_meta_files, app_asa_files)
@@ -338,6 +372,15 @@ if active_port == "app":
             columns = st.columns(3)
             for column, (period, label) in zip(columns, app_periods):
                 manual_key = f"app_natural_revenue_{period}"
+                app_manual[manual_key] = column.number_input(
+                    label, min_value=0.0,
+                    value=float(app_saved_manual.get(manual_key, 0.0)),
+                    key=f"app_{manual_key}",
+                )
+            st.markdown("**模型固定成本（仅计入APP&WEB总表含固定成本口径）**")
+            columns = st.columns(3)
+            for column, (period, label) in zip(columns, app_periods):
+                manual_key = f"model_fixed_cost_{period}"
                 app_manual[manual_key] = column.number_input(
                     label, min_value=0.0,
                     value=float(app_saved_manual.get(manual_key, 0.0)),
@@ -507,13 +550,20 @@ if active_port == "app":
                     st.write(f"ASA消耗：{len(app_asa):,} 行")
                     app_orders = read_uploads(shared_order_files)
                     st.write(f"Web订单数据：{len(app_orders):,} 行")
-                    filename, content, warnings, costs = generate_app_report(
+                    filename, content, warnings, costs, app_summary = generate_app_report(
                         app_google, app_meta, app_asa, app_orders,
                         app_start, app_end, app_manual, app_targets
                     )
                     st.session_state["app_report"] = (filename, content)
                     st.session_state["app_report_warnings"] = warnings
                     st.session_state["app_cost_summary"] = costs
+                    st.session_state["app_total_summary"] = app_summary
+                    st.session_state["app_report_period"] = (app_start, app_end)
+                    st.session_state["app_fixed_costs"] = {
+                        period: float(app_manual.get(f"model_fixed_cost_{period}", 0.0) or 0.0)
+                        for period in ("本周", "上周", "MTD")
+                    }
+                    refresh_total_report()
                     status.update(label="APP工作簿已生成", state="complete", expanded=False)
         except Exception as exc:
             with app_main:
@@ -547,10 +597,27 @@ if active_port == "app":
                 "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                 type="primary", use_container_width=True, key="download_app_report",
             )
+            if st.session_state.get("total_report"):
+                total_filename, total_content = st.session_state["total_report"]
+                st.markdown(
+                    f'<div class="download-card"><b>APP&WEB总数据</b><br><span>Excel · {len(total_content)/1024:.1f} KB</span></div>',
+                    unsafe_allow_html=True,
+                )
+                st.download_button(
+                    "下载APP&WEB总数据", total_content, total_filename,
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    use_container_width=True, key="download_total_report_app",
+                )
+            else:
+                web_period = st.session_state.get("web_report_period")
+                if web_period and web_period != (app_start, app_end):
+                    st.info("Web与App报告周期不一致。请用相同日期重新生成Web报告后再生成总表。")
+                else:
+                    st.info("请先在Web页面生成相同周期的五份报告，系统随后会自动生成APP&WEB总数据。")
 
     st.markdown('<div class="page-bottom-spacer" aria-hidden="true"></div>', unsafe_allow_html=True)
     st.markdown(
-        '<div class="fixed-footer"><span>APP与WEB数据相互独立'
+        '<div class="fixed-footer"><span>APP&WEB总表需两端使用相同报告周期'
         '<a href="#app-targets">跳到APP月度目标</a></span>'
         '<b>DATA AUTOMATION · APP工作台</b></div>',
         unsafe_allow_html=True,
@@ -589,7 +656,7 @@ with main_col:
             st.markdown(upload_status(reg_files), unsafe_allow_html=True)
             if reg_files and st.button("删除已上传的注册文件", key="clear_reg_files", use_container_width=True):
                 st.session_state["reg_upload_version"] = reg_upload_version + 1
-                st.session_state.pop("reports", None)
+                invalidate_web_outputs()
                 st.rerun()
             google_upload_version = st.session_state.get("google_upload_version", 0)
             google_files = st.file_uploader(
@@ -599,7 +666,7 @@ with main_col:
             st.markdown(upload_status(google_files), unsafe_allow_html=True)
             if google_files and st.button("删除已上传的Google文件", key="clear_google_files", use_container_width=True):
                 st.session_state["google_upload_version"] = google_upload_version + 1
-                st.session_state.pop("reports", None)
+                invalidate_web_outputs()
                 st.rerun()
         with u2:
             order_upload_version = st.session_state.get("order_upload_version", 0)
@@ -612,7 +679,7 @@ with main_col:
             st.markdown(upload_status(order_files), unsafe_allow_html=True)
             if order_files and st.button("删除已上传的订单文件", key="clear_order_files", use_container_width=True):
                 st.session_state["order_upload_version"] = order_upload_version + 1
-                st.session_state.pop("reports", None)
+                invalidate_web_outputs()
                 st.session_state.pop("shared_order_files", None)
                 st.rerun()
             bing_upload_version = st.session_state.get("bing_upload_version", 0)
@@ -623,7 +690,7 @@ with main_col:
             st.markdown(upload_status(bing_files), unsafe_allow_html=True)
             if bing_files and st.button("删除已上传的Bing文件", key="clear_bing_files", use_container_width=True):
                 st.session_state["bing_upload_version"] = bing_upload_version + 1
-                st.session_state.pop("reports", None)
+                invalidate_web_outputs()
                 st.rerun()
         uploaded_count = sum(bool(x) for x in [reg_files, order_files, google_files, bing_files])
         upload_header.markdown(f'<div class="upload-head"><div><h2>上传源数据</h2><p>上传4类数据，系统将自动完成格式检查和数据预处理</p></div><div class="upload-count">{uploaded_count} / 4 已完成</div></div>', unsafe_allow_html=True)
@@ -983,13 +1050,16 @@ if generate_clicked:
                 bing = read_uploads(bing_files); st.write(f"Bing消耗：{len(bing):,} 行")
                 # 直接把当前目标配置交给生成引擎。这样刚在网站保存的目标无需等待
                 # Streamlit 重新部署，也会立即写入本次生成的 Excel。
-                reports, warnings = generate_v3_reports(
+                reports, warnings, web_summary = generate_v3_reports(
                     reg, orders, google, bing, None, start, end, input_values,
                     targets=load_targets(), rules=load_rules(),
                 )
                 if len(reports) != 5:
                     raise RuntimeError(f"报告生成数量异常：应生成5份，实际生成{len(reports)}份，请刷新页面后重试。")
                 st.session_state["reports"] = reports; st.session_state["warnings"] = warnings
+                st.session_state["web_total_summary"] = web_summary
+                st.session_state["web_report_period"] = (start, end)
+                refresh_total_report()
                 status.update(label="五份周报已生成", state="complete", expanded=False)
     except Exception as exc:
         with main_col: st.exception(exc)
@@ -1013,7 +1083,22 @@ if st.session_state.get("reports"):
         bundle = BytesIO()
         with ZipFile(bundle, "w", ZIP_DEFLATED) as archive:
             for filename, content in reports.items(): archive.writestr(filename, content)
-        st.download_button("一键下载五份周报（ZIP）", bundle.getvalue(), f"末次归因周报_{start:%Y.%m.%d}-{end:%Y.%m.%d}.zip", "application/zip", type="primary", use_container_width=True)
+            if st.session_state.get("total_report"):
+                total_filename, total_content = st.session_state["total_report"]
+                archive.writestr(total_filename, total_content)
+        bundle_label = "一键下载五份周报和总表（ZIP）" if st.session_state.get("total_report") else "一键下载五份周报（ZIP）"
+        st.download_button(bundle_label, bundle.getvalue(), f"末次归因周报_{start:%Y.%m.%d}-{end:%Y.%m.%d}.zip", "application/zip", type="primary", use_container_width=True)
+        if st.session_state.get("total_report"):
+            total_filename, total_content = st.session_state["total_report"]
+            st.markdown(
+                f'<div class="download-card"><b>APP&WEB总数据</b><br><span>Excel · {len(total_content)/1024:.1f} KB</span></div>',
+                unsafe_allow_html=True,
+            )
+            st.download_button(
+                "单独下载APP&WEB总数据", total_content, total_filename,
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                use_container_width=True, key="download_total_report_web",
+            )
 
 st.markdown('<div class="page-bottom-spacer" aria-hidden="true"></div>', unsafe_allow_html=True)
 st.markdown(

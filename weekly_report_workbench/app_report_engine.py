@@ -264,7 +264,7 @@ def prepare_app_orders(orders: pd.DataFrame) -> tuple[pd.DataFrame, list[str]]:
     if "订单金额" not in orders.columns and "兑换美元" in orders.columns:
         orders["订单金额"] = orders["兑换美元"]
         warnings.append("APP总数据的订单金额使用订单表“兑换美元”字段。")
-    required = ["支付端口", "国家", "订单金额", "注册转化周期"]
+    required = ["支付端口", "国家", "订单金额", "注册转化周期", "支付位置"]
     missing = [column for column in required if column not in orders.columns]
     if "支付时间" not in orders.columns and "订单生成时间" not in orders.columns:
         missing.append("支付时间或订单生成时间")
@@ -324,6 +324,7 @@ def _sum_country_cost(frame: pd.DataFrame, start: date, end: date, country: str)
 def _sum_order_revenue(
     orders: pd.DataFrame, start: date, end: date, *, new_only: bool = False,
     roi_group: str | None = None, country: str | None = None,
+    exclude_subscription: bool = False,
 ) -> float:
     mask = orders["app_date"].dt.date.between(start, end)
     if new_only:
@@ -332,6 +333,8 @@ def _sum_order_revenue(
         mask &= orders["roi_group"].eq(roi_group)
     if country is not None:
         mask &= orders["国家"].map(_canonical_country).eq(country)
+    if exclude_subscription:
+        mask &= ~orders["支付位置"].fillna("").astype(str).str.contains("订阅", na=False)
     return float(orders.loc[mask, "订单金额"].sum())
 
 
@@ -365,6 +368,7 @@ def generate_app_report(
     values: dict[str, dict[str, float]] = {}
     cost_summary: dict[str, dict[str, float]] = {}
     total_values: dict[str, dict[str, float]] = {}
+    app_summary: dict[str, dict[str, float]] = {}
 
     for period, (period_start, period_end) in ranges.items():
         google_cost = _sum_cost(google, period_start, period_end)
@@ -408,6 +412,9 @@ def generate_app_report(
 
         app_total_revenue = _sum_order_revenue(orders, period_start, period_end)
         app_new_revenue = _sum_order_revenue(orders, period_start, period_end, new_only=True)
+        app_non_subscription_revenue = _sum_order_revenue(
+            orders, period_start, period_end, exclude_subscription=True
+        )
         app_natural_revenue = float(manual.get(f"app_natural_revenue_{period}", 0.0))
         total_values[period] = {
             "APP—新老综合ROI": _safe_div(app_total_revenue, total_cost),
@@ -427,6 +434,12 @@ def generate_app_report(
             "APP自然量收入": app_natural_revenue,
             "老用户收入": app_total_revenue - total_revenue - app_natural_revenue,
             "总成本": total_cost,
+        }
+        app_summary[period] = {
+            "new_user_revenue": app_new_revenue,
+            "all_user_non_subscription_revenue": app_non_subscription_revenue,
+            "all_user_revenue": app_total_revenue,
+            "total_cost": total_cost,
         }
 
     workbook = load_workbook(APP_TEMPLATE)
@@ -577,4 +590,4 @@ def generate_app_report(
     output = BytesIO()
     workbook.save(output)
     filename = f"APP投放营收_{start:%Y.%m.%d}-{end:%Y.%m.%d}.xlsx"
-    return filename, output.getvalue(), warnings, cost_summary
+    return filename, output.getvalue(), warnings, cost_summary, app_summary

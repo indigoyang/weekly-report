@@ -849,6 +849,22 @@ def generate_v3_reports(reg, orders, google, bing, mobile, start, end, inputs, t
     natural_wb = _natural_report(dates, natural_metrics, monthly_natural)
     member_wb = _member_report(dates, orders)
 
+    web_summary = {}
+    for label in ("本周", "上周", "MTD"):
+        web_cost = (
+            float(all_metrics[f"SEM消耗_{label}"])
+            + float(inputs.get(f"commission_{label}", 0) or 0)
+            + float(inputs.get(f"seo_{label}", 0) or 0)
+            + {"本周": google_to_seo_tw, "上周": google_to_seo_lw, "MTD": google_to_seo_mtd}[label]
+        )
+        web_summary[label] = {
+            "new_user_revenue": float(all_metrics[f"D0营收_{label}"]),
+            "all_user_non_subscription_revenue": float(all_metrics[f"除订阅总营收_{label}"]),
+            "all_user_revenue": float(all_metrics[f"含订阅总营收_{label}"]),
+            "web_cost": web_cost,
+            "kol_cost": float(natural_metrics.get(f"成本总计_{label}", 0) or 0),
+        }
+
     stamp = f"{start:%Y.%m.%d}-{end:%Y.%m.%d}"
     return {
         f"周报-全渠道_末次归因_{stamp}.xlsx": _wb_bytes(all_wb),
@@ -856,4 +872,4 @@ def generate_v3_reports(reg, orders, google, bing, mobile, start, end, inputs, t
         f"周报-SEM分地区（末次归因）_{stamp}.xlsx": _wb_bytes(region_wb),
         f"周报-自然来源_{stamp}.xlsx": _wb_bytes(natural_wb),
         f"周报-会员类型_{stamp}.xlsx": _wb_bytes(member_wb),
-    }, warnings
+    }, warnings, web_summary
