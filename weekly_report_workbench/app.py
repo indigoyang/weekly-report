@@ -11,6 +11,7 @@ import pandas as pd
 from report_engine import read_uploads
 from app_report_engine import generate_app_report, read_app_uploads
 from total_report_engine import generate_total_report
+from ugc_report_engine import generate_ugc_report
 from v3_report_engine import generate_v3_reports
 from target_store import (
     ALL_CHANNEL_TARGET_METRICS,
@@ -29,7 +30,7 @@ st.set_page_config(page_title="数据自动化", page_icon="A", layout="wide", i
 
 # 报告结构升级时清理当前浏览器会话里旧版本生成的结果。
 # 否则Streamlit热更新后，页面可能继续显示更新前缓存的4份报告。
-REPORT_SCHEMA_VERSION = "2026-11-16-app-web-total-v9"
+REPORT_SCHEMA_VERSION = "2026-11-17-ugc-app-sources-v11"
 if st.session_state.get("report_schema_version") != REPORT_SCHEMA_VERSION:
     st.session_state.pop("reports", None)
     st.session_state.pop("warnings", None)
@@ -38,6 +39,7 @@ if st.session_state.get("report_schema_version") != REPORT_SCHEMA_VERSION:
     st.session_state.pop("web_total_summary", None)
     st.session_state.pop("app_total_summary", None)
     st.session_state.pop("total_report", None)
+    st.session_state.pop("ugc_report", None)
     st.session_state["report_schema_version"] = REPORT_SCHEMA_VERSION
 
 
@@ -69,9 +71,10 @@ def invalidate_web_outputs():
     st.session_state.pop("web_total_summary", None)
     st.session_state.pop("web_report_period", None)
     st.session_state.pop("total_report", None)
+    st.session_state.pop("ugc_report", None)
 admin_mode = str(st.query_params.get("admin", "")) == "1"
 active_port = str(st.query_params.get("port", "web")).lower()
-if active_port not in {"web", "app"}:
+if active_port not in {"web", "app", "ugc"}:
     active_port = "web"
 
 st.markdown("""
@@ -227,8 +230,11 @@ with st.sidebar:
     if st.button("📱  App 周报", key="port_app", help="进入App周报生成", use_container_width=True):
         st.query_params["port"] = "app"
         st.rerun()
+    if st.button("🎬  UGC数据", key="port_ugc", help="使用Web订单和注册数据生成UGC监控表", use_container_width=True):
+        st.query_params["port"] = "ugc"
+        st.rerun()
 
-active_button_key = "port_web" if active_port == "web" else "port_app"
+active_button_key = {"web": "port_web", "app": "port_app", "ugc": "port_ugc"}[active_port]
 st.markdown(
     f"<style>.st-key-{active_button_key} button{{background:var(--lime)!important;"
     "color:#111!important;border-color:#111!important;box-shadow:3px 3px 0 #111!important;"
@@ -237,6 +243,140 @@ st.markdown(
     "bottom:22%;width:4px;background:#111;border-radius:0 4px 4px 0}}</style>",
     unsafe_allow_html=True,
 )
+
+if active_port == "ugc":
+    st.markdown(
+        """<header class="topbar"><div class="eyebrow">UGC Data Monitor</div>
+        <h1>UGC数据</h1>
+        <p>复用Web注册与订单数据，并单独上传含APP渠道来源的注册表和订单表</p>
+        <div class="steps"><div class="step done"><b>✓</b>Web源数据</div>
+        <div class="step-line"></div><div class="step on"><b>02</b>APP源数据</div>
+        <div class="step-line"></div><div class="step"><b>03</b>生成表格</div></div></header>""",
+        unsafe_allow_html=True,
+    )
+    ugc_reg_files = st.session_state.get("shared_registration_files", [])
+    ugc_order_files = st.session_state.get("shared_order_files", [])
+    today = date.today()
+    ugc_default_end = today - timedelta(days=1)
+    ugc_default_start = ugc_default_end - timedelta(days=6)
+    ugc_main, ugc_side = st.columns([3.15, 1], gap="large")
+    def ugc_upload_status(files):
+        if not files:
+            return '<div class="file-status">待上传</div>'
+        names = "、".join(escape(file.name) for file in files)
+        return (
+            f'<div class="file-status ok">✓ 已上传 {len(files)} 个文件'
+            f'<span>{names}</span></div>'
+        )
+    with ugc_main:
+        with st.container(border=True):
+            st.markdown(
+                '<div class="upload-head"><div><h2>复用Web源数据</h2>'
+                '<p>Web侧继续使用Web周报页面已经上传的注册与订单文件。</p></div></div>',
+                unsafe_allow_html=True,
+            )
+            source_rows = pd.DataFrame([
+                {"数据": "Web注册数据", "状态": "已就绪" if ugc_reg_files else "未上传"},
+                {"数据": "Web订单数据", "状态": "已就绪" if ugc_order_files else "未上传"},
+            ])
+            st.dataframe(source_rows, hide_index=True, use_container_width=True)
+            if not ugc_reg_files or not ugc_order_files:
+                st.info("请先进入左侧“Web 周报”，上传注册数据和订单数据。上传后返回本页即可直接生成。")
+        with st.container(border=True):
+            st.markdown(
+                '<div class="upload-head"><div><h2>上传APP源数据</h2>'
+                '<p>APP侧必须使用带APP渠道来源字段的独立注册表和订单表。</p></div></div>',
+                unsafe_allow_html=True,
+            )
+            ugc_app_reg_version = st.session_state.get("ugc_app_reg_version", 0)
+            ugc_app_order_version = st.session_state.get("ugc_app_order_version", 0)
+            ugc_u1, ugc_u2 = st.columns(2)
+            with ugc_u1:
+                ugc_app_reg_files = st.file_uploader(
+                    "**APP注册数据**  \n包含APP渠道来源字段",
+                    type=["xlsx", "xlsm", "csv"], accept_multiple_files=True,
+                    key=f"ugc_app_reg_files_{ugc_app_reg_version}",
+                )
+                st.markdown(ugc_upload_status(ugc_app_reg_files), unsafe_allow_html=True)
+                if ugc_app_reg_files and st.button(
+                    "删除APP注册文件", key="clear_ugc_app_reg", use_container_width=True
+                ):
+                    st.session_state["ugc_app_reg_version"] = ugc_app_reg_version + 1
+                    st.session_state.pop("ugc_report", None)
+                    st.rerun()
+            with ugc_u2:
+                ugc_app_order_files = st.file_uploader(
+                    "**APP订单数据**  \n包含APP渠道来源字段",
+                    type=["xlsx", "xlsm", "csv"], accept_multiple_files=True,
+                    key=f"ugc_app_order_files_{ugc_app_order_version}",
+                )
+                st.markdown(ugc_upload_status(ugc_app_order_files), unsafe_allow_html=True)
+                if ugc_app_order_files and st.button(
+                    "删除APP订单文件", key="clear_ugc_app_order", use_container_width=True
+                ):
+                    st.session_state["ugc_app_order_version"] = ugc_app_order_version + 1
+                    st.session_state.pop("ugc_report", None)
+                    st.rerun()
+    with ugc_side:
+        st.markdown('<div class="panel"><div class="panel-title">UGC报告周期<span>自动保存</span></div>', unsafe_allow_html=True)
+        ugc_start = st.date_input("开始日期", ugc_default_start, key="ugc_report_start")
+        ugc_end = st.date_input("结束日期", ugc_default_end, key="ugc_report_end")
+        st.caption(f"当前周期 · {ugc_start:%Y.%m.%d} – {ugc_end:%Y.%m.%d}")
+        st.markdown('</div>', unsafe_allow_html=True)
+        ugc_ready = bool(
+            ugc_reg_files and ugc_order_files
+            and ugc_app_reg_files and ugc_app_order_files
+            and ugc_start <= ugc_end
+        )
+        if not ugc_reg_files or not ugc_order_files:
+            ugc_button_label = "请先到Web页面上传订单和注册数据"
+        elif not ugc_app_reg_files or not ugc_app_order_files:
+            ugc_button_label = "请上传APP注册和订单数据"
+        else:
+            ugc_button_label = "✦ 生成UGC数据监控表"
+        ugc_generate = st.button(
+            ugc_button_label,
+            type="primary", disabled=not ugc_ready, use_container_width=True, key="ugc_generate",
+        )
+    if ugc_start > ugc_end:
+        with ugc_side:
+            st.error("开始日期不能晚于结束日期。")
+    if ugc_generate:
+        try:
+            with ugc_main:
+                with st.status("正在按查询口径生成UGC数据监控表……", expanded=True) as status:
+                    ugc_reg = read_uploads(ugc_reg_files)
+                    st.write(f"Web注册数据：{len(ugc_reg):,} 行")
+                    ugc_orders = read_uploads(ugc_order_files)
+                    st.write(f"Web订单数据：{len(ugc_orders):,} 行")
+                    ugc_app_reg = read_uploads(ugc_app_reg_files)
+                    st.write(f"APP注册数据：{len(ugc_app_reg):,} 行")
+                    ugc_app_orders = read_uploads(ugc_app_order_files)
+                    st.write(f"APP订单数据：{len(ugc_app_orders):,} 行")
+                    st.session_state["ugc_report"] = generate_ugc_report(
+                        ugc_reg, ugc_orders, ugc_app_reg, ugc_app_orders,
+                        ugc_start, ugc_end
+                    )
+                    status.update(label="UGC数据监控表已生成", state="complete", expanded=False)
+        except Exception as exc:
+            with ugc_main:
+                st.exception(exc)
+    if st.session_state.get("ugc_report"):
+        ugc_filename, ugc_content, ugc_warnings = st.session_state["ugc_report"]
+        with ugc_main:
+            for warning in ugc_warnings:
+                st.warning(warning)
+            st.markdown(
+                f'<div class="download-card"><b>UGC数据监控</b><br>'
+                f'<span>Excel · {len(ugc_content)/1024:.1f} KB</span></div>',
+                unsafe_allow_html=True,
+            )
+            st.download_button(
+                "下载UGC数据监控表", ugc_content, ugc_filename,
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                type="primary", use_container_width=True, key="download_ugc_report",
+            )
+    st.stop()
 
 if active_port == "app":
     st.markdown(
@@ -653,10 +793,14 @@ with main_col:
                 "**注册数据**  \n用户注册与渠道来源", type=["xlsx","xlsm","csv"],
                 accept_multiple_files=True, key=f"reg_files_{reg_upload_version}"
             )
+            if reg_files:
+                st.session_state["shared_registration_files"] = list(reg_files)
             st.markdown(upload_status(reg_files), unsafe_allow_html=True)
             if reg_files and st.button("删除已上传的注册文件", key="clear_reg_files", use_container_width=True):
                 st.session_state["reg_upload_version"] = reg_upload_version + 1
                 invalidate_web_outputs()
+                st.session_state.pop("shared_registration_files", None)
+                st.session_state.pop("ugc_report", None)
                 st.rerun()
             google_upload_version = st.session_state.get("google_upload_version", 0)
             google_files = st.file_uploader(
@@ -681,6 +825,7 @@ with main_col:
                 st.session_state["order_upload_version"] = order_upload_version + 1
                 invalidate_web_outputs()
                 st.session_state.pop("shared_order_files", None)
+                st.session_state.pop("ugc_report", None)
                 st.rerun()
             bing_upload_version = st.session_state.get("bing_upload_version", 0)
             bing_files = st.file_uploader(
