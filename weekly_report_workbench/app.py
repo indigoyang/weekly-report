@@ -269,20 +269,14 @@ if active_port == "ugc":
             f'<span>{names}</span></div>'
         )
     with ugc_main:
-        with st.container(border=True):
-            st.markdown(
-                '<div class="upload-head"><div><h2>复用Web源数据</h2>'
-                '<p>Web侧继续使用Web周报页面已经上传的注册与订单文件。</p></div></div>',
-                unsafe_allow_html=True,
-            )
-            source_rows = pd.DataFrame([
-                {"数据": "Web注册数据", "状态": "已就绪" if ugc_reg_files else "未上传"},
-                {"数据": "Web订单数据", "状态": "已就绪" if ugc_order_files else "未上传"},
-            ])
-            st.dataframe(source_rows, hide_index=True, use_container_width=True)
-            if not ugc_reg_files or not ugc_order_files:
-                st.info("请先进入左侧“Web 周报”，上传注册数据和订单数据。上传后返回本页即可直接生成。")
-        with st.container(border=True):
+        st.markdown(
+            "<style>"
+            ".st-key-ugc_app_source_box .upload-head h2:before{content:'01'!important}"
+            ".st-key-ugc_web_source_box .upload-head h2:before{content:'02'!important}"
+            "</style>",
+            unsafe_allow_html=True,
+        )
+        with st.container(border=True, key="ugc_app_source_box"):
             st.markdown(
                 '<div class="upload-head"><div><h2>上传APP源数据</h2>'
                 '<p>APP侧必须使用带APP渠道来源字段的独立注册表和订单表。</p></div></div>',
@@ -317,6 +311,19 @@ if active_port == "ugc":
                     st.session_state["ugc_app_order_version"] = ugc_app_order_version + 1
                     st.session_state.pop("ugc_report", None)
                     st.rerun()
+        with st.container(border=True, key="ugc_web_source_box"):
+            st.markdown(
+                '<div class="upload-head"><div><h2>复用Web源数据</h2>'
+                '<p>Web侧继续使用Web周报页面已经上传的注册与订单文件。</p></div></div>',
+                unsafe_allow_html=True,
+            )
+            source_rows = pd.DataFrame([
+                {"数据": "Web注册数据", "状态": "已就绪" if ugc_reg_files else "未上传"},
+                {"数据": "Web订单数据", "状态": "已就绪" if ugc_order_files else "未上传"},
+            ])
+            st.dataframe(source_rows, hide_index=True, use_container_width=True)
+            if not ugc_reg_files or not ugc_order_files:
+                st.info("请先进入左侧“Web 周报”，上传注册数据和订单数据。上传后返回本页即可直接生成。")
     with ugc_side:
         st.markdown('<div class="panel"><div class="panel-title">UGC报告周期<span>自动保存</span></div>', unsafe_allow_html=True)
         ugc_start = st.date_input("开始日期", ugc_default_start, key="ugc_report_start")
