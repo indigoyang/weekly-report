@@ -47,14 +47,11 @@ def _web_channel(frame):
 
 
 def _app_channel(frame):
+    """APP注册表和订单表共用同一套“APP渠道来源”精确归因规则。"""
     source = _text(frame, "APP渠道来源")
-    source = source.where(source.ne(""), _text(frame, "末次来源类型"))
-    source = source.where(source.ne(""), _text(frame, "渠道来源"))
-    source = source.where(source.ne(""), _text(frame, "渠道类型"))
-    detail = source + " " + _text(frame, "末次来源") + " " + _text(frame, "广告来源")
     result = pd.Series("自然来源", index=frame.index, dtype="object")
-    result[detail.str.contains("ASA|APPLE SEARCH", regex=True)] = "ASA"
-    result[detail.str.contains("SEM|GOOGLE|META|FACEBOOK|FB", regex=True)] = "SEM"
+    result[source.isin({"GOOGLEADWORDS_INT", "FACEBOOK ADS"})] = "SEM"
+    result[source.eq("APPLE SEARCH ADS")] = "ASA"
     return result
 
 
@@ -70,10 +67,16 @@ def _prepare(reg, orders, *, app_only=False):
         order_required.append("订单生成时间或支付时间")
     missing_reg = [field for field in reg_required if field not in reg]
     missing_order = [field for field in order_required if field not in orders]
-    if "订单金额" not in orders and "兑换美元" in orders:
-        orders["订单金额"] = orders["兑换美元"]
-    if "订单金额" not in orders:
-        missing_order.append("订单金额或兑换美元")
+    if app_only:
+        if "兑换美元" not in orders:
+            missing_order.append("兑换美元")
+        if "支付位置" not in orders:
+            missing_order.append("支付位置")
+    else:
+        if "订单金额" not in orders and "兑换美元" in orders:
+            orders["订单金额"] = orders["兑换美元"]
+        if "订单金额" not in orders:
+            missing_order.append("订单金额或兑换美元")
     if missing_reg or missing_order:
         messages = []
         if missing_reg:
@@ -81,10 +84,21 @@ def _prepare(reg, orders, *, app_only=False):
         if missing_order:
             messages.append("订单数据缺少：" + "、".join(missing_order))
         raise ValueError("；".join(messages))
+    if app_only:
+        missing_app_source = [
+            table_name
+            for table_name, frame in (("APP注册数据", reg), ("APP订单数据", orders))
+            if "APP渠道来源" not in frame
+        ]
+        if missing_app_source:
+            raise ValueError("、".join(missing_app_source) + "缺少字段：APP渠道来源")
     if app_only and "注册端口" not in reg:
         reg["注册端口"] = "APP"
     if app_only and "支付端口" not in orders:
         orders["支付端口"] = "APP"
+    if app_only:
+        # APP营收固定按“兑换美元”，即使文件中同时存在“订单金额”也不使用后者。
+        orders["订单金额"] = orders["兑换美元"]
     reg["__date"] = pd.to_datetime(reg["注册时间"], errors="coerce")
     reg["__region"] = reg["注册地区"].fillna("").astype(str).str.strip()
     reg["__web_channel"] = _web_channel(reg)
@@ -113,14 +127,16 @@ def _range(frame, start, end):
     return frame[frame["__date"].dt.date.between(start, end)]
 
 
-def _channel_metrics(reg, orders, channel_field, channels):
+def _channel_metrics(reg, orders, channel_field, channels, *, exclude_payment_location):
     output = {}
     for channel in channels:
         channel_reg = reg[reg[channel_field].eq(channel)]
         channel_orders = orders[orders[channel_field].eq(channel)]
         new_orders = channel_orders[channel_orders["注册转化周期"].eq(0)]
         non_subscription = channel_orders[
-            ~channel_orders["支付位置"].fillna("").astype(str).str.contains("订阅", na=False)
+            ~channel_orders["支付位置"].fillna("").astype(str).str.contains(
+                exclude_payment_location, na=False
+            )
         ]
         output[channel] = {
             "reg": int(len(channel_reg)),
@@ -152,7 +168,7 @@ def _build_metrics(web_reg, web_orders, app_reg, app_orders, start, end):
         web = _channel_metrics(
             region_web_reg[_is_web(region_web_reg["注册端口"])],
             region_web_orders[_is_web(region_web_orders["支付端口"])],
-            "__web_channel", WEB_CHANNELS,
+            "__web_channel", WEB_CHANNELS, exclude_payment_location="订阅",
         )
         period_app_reg = _range(app_reg, period_start, period_end)
         period_app_orders = _range(app_orders, period_start, period_end)
@@ -162,6 +178,7 @@ def _build_metrics(web_reg, web_orders, app_reg, app_orders, start, end):
             region_app_reg[_is_app(region_app_reg["注册端口"])],
             region_app_orders[_is_app(region_app_orders["支付端口"])],
             "__app_channel", ("SEM", "自然来源", "ASA"),
+            exclude_payment_location="自动续费",
         )
         output[period] = {"web": web, "app": app}
     return output

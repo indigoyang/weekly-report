@@ -30,7 +30,7 @@ st.set_page_config(page_title="数据自动化", page_icon="A", layout="wide", i
 
 # 报告结构升级时清理当前浏览器会话里旧版本生成的结果。
 # 否则Streamlit热更新后，页面可能继续显示更新前缓存的4份报告。
-REPORT_SCHEMA_VERSION = "2026-11-17-ugc-app-sources-v11"
+REPORT_SCHEMA_VERSION = "2026-11-17-ugc-app-revenue-v13"
 if st.session_state.get("report_schema_version") != REPORT_SCHEMA_VERSION:
     st.session_state.pop("reports", None)
     st.session_state.pop("warnings", None)
