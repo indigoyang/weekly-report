@@ -14,6 +14,22 @@ APP_TEMPLATE = ROOT / "assets" / "APP投放表格.xlsx"
 
 PERIODS = ("本周", "上周", "MTD")
 REGIONS = ("台湾", "韩国", "印度", "印度尼西亚")
+APPSFLYER_REVENUE_FIELD = "Revenue ltv days cumulative appsflyer"
+APPSFLYER_BUY_CHANNELS = {
+    "googleadwords_int": "Google",
+    "Facebook Ads": "Meta",
+    "Apple Search Ads": "ASA",
+    "tiktokglobal_int": "TikTok",
+}
+APPSFLYER_NATURAL_CHANNELS = {
+    "organic", "aippt_seo_download", "aippt_home_nature",
+}
+APPSFLYER_REGION_COUNTRIES = {
+    "台湾": "中国台湾",
+    "韩国": "韩国",
+    "印度": "印度",
+    "印度尼西亚": "印度尼西亚",
+}
 APP_COUNTRY_ROWS = {
     4: "中国台湾",
     5: "印度",
@@ -294,6 +310,35 @@ def prepare_app_orders(orders: pd.DataFrame) -> tuple[pd.DataFrame, list[str]]:
     return orders.loc[app_mask & orders["app_date"].notna()].copy(), warnings
 
 
+def prepare_appsflyer_revenue(frame: pd.DataFrame) -> tuple[pd.DataFrame, list[str]]:
+    """清洗AppsFlyer分天、分地区、分媒体渠道营收导出。"""
+    required = ("Media source", "Date", "Geo", APPSFLYER_REVENUE_FIELD)
+    missing = [column for column in required if column not in frame.columns]
+    if missing:
+        raise ValueError(f"AppsFlyer营收数据缺少字段：{', '.join(missing)}")
+    result = frame.copy()
+    result["af_date"] = pd.to_datetime(result["Date"], errors="coerce")
+    result["af_media"] = result["Media source"].fillna("").astype(str).str.strip()
+    result["af_country"] = result["Geo"].map(_canonical_country)
+    result["af_revenue"] = pd.to_numeric(
+        result[APPSFLYER_REVENUE_FIELD].astype(str).str.replace(",", "", regex=False),
+        errors="coerce",
+    ).fillna(0.0)
+    warnings: list[str] = []
+    invalid_dates = int(result["af_date"].isna().sum())
+    if invalid_dates:
+        warnings.append(f"AppsFlyer营收有 {invalid_dates} 行日期无法识别，已忽略。")
+    known = set(APPSFLYER_BUY_CHANNELS) | APPSFLYER_NATURAL_CHANNELS
+    unknown = sorted(value for value in result["af_media"].unique() if value not in known)
+    if unknown:
+        preview = "、".join(value or "空白" for value in unknown[:8])
+        warnings.append(
+            f"AppsFlyer有未配置渠道，未计入投放或自然收入：{preview}"
+            + ("等" if len(unknown) > 8 else "")
+        )
+    return result.loc[result["af_date"].notna()].copy(), warnings
+
+
 def _period_ranges(start: date, end: date) -> dict[str, tuple[date, date]]:
     days = (end - start).days + 1
     return {
@@ -321,6 +366,21 @@ def _sum_country_cost(frame: pd.DataFrame, start: date, end: date, country: str)
     return float(frame.loc[mask & canonical_country.eq(country), "cost"].sum())
 
 
+def _sum_appsflyer_revenue(
+    frame: pd.DataFrame,
+    start: date,
+    end: date,
+    *,
+    media_sources: set[str],
+    country: str | None = None,
+) -> float:
+    mask = frame["af_date"].dt.date.between(start, end)
+    mask &= frame["af_media"].isin(media_sources)
+    if country is not None:
+        mask &= frame["af_country"].eq(country)
+    return float(frame.loc[mask, "af_revenue"].sum())
+
+
 def _sum_order_revenue(
     orders: pd.DataFrame, start: date, end: date, *, new_only: bool = False,
     roi_group: str | None = None, country: str | None = None,
@@ -334,7 +394,7 @@ def _sum_order_revenue(
     if country is not None:
         mask &= orders["国家"].map(_canonical_country).eq(country)
     if exclude_subscription:
-        mask &= ~orders["支付位置"].fillna("").astype(str).str.contains("订阅", na=False)
+        mask &= ~orders["支付位置"].fillna("").astype(str).str.contains("自动续费", na=False)
     return float(orders.loc[mask, "订单金额"].sum())
 
 
@@ -350,6 +410,7 @@ def generate_app_report(
     google: pd.DataFrame,
     meta: pd.DataFrame,
     asa: pd.DataFrame,
+    appsflyer: pd.DataFrame,
     orders: pd.DataFrame,
     start: date,
     end: date,
@@ -362,9 +423,25 @@ def generate_app_report(
         raise FileNotFoundError(f"找不到APP投放模板：{APP_TEMPLATE}")
 
     google, meta, asa, warnings = prepare_app_costs(google, meta, asa)
+    appsflyer, appsflyer_warnings = prepare_appsflyer_revenue(appsflyer)
+    warnings.extend(appsflyer_warnings)
     orders, order_warnings = prepare_app_orders(orders)
     warnings.extend(order_warnings)
     ranges = _period_ranges(start, end)
+    required_start = min(ranges["上周"][0], ranges["MTD"][0])
+    if not appsflyer.empty:
+        source_start = appsflyer["af_date"].min().date()
+        source_end = appsflyer["af_date"].max().date()
+        if source_start > required_start or source_end < end:
+            warnings.append(
+                f"AppsFlyer营收日期仅覆盖 {source_start:%Y-%m-%d} 至 {source_end:%Y-%m-%d}；"
+                f"完整计算本周、上周和MTD需要覆盖 {required_start:%Y-%m-%d} 至 {end:%Y-%m-%d}。"
+            )
+        if appsflyer["af_media"].eq("tiktokglobal_int").any():
+            warnings.append(
+                "TikTok营收已计入“APP投放总收入（D7）”；现有模板没有TikTok单独行，"
+                "因此总收入会大于Google、Meta与ASA三行之和。"
+            )
     values: dict[str, dict[str, float]] = {}
     cost_summary: dict[str, dict[str, float]] = {}
     total_values: dict[str, dict[str, float]] = {}
@@ -374,10 +451,19 @@ def generate_app_report(
         google_cost = _sum_cost(google, period_start, period_end)
         meta_cost = _sum_cost(meta, period_start, period_end)
         asa_cost = _sum_cost(asa, period_start, period_end)
-        google_revenue = float(manual.get(f"google_revenue_{period}", 0.0))
-        meta_revenue = float(manual.get(f"meta_revenue_{period}", 0.0))
-        asa_revenue = float(manual.get(f"asa_revenue_{period}", 0.0))
-        total_revenue = google_revenue + meta_revenue + asa_revenue
+        google_revenue = _sum_appsflyer_revenue(
+            appsflyer, period_start, period_end, media_sources={"googleadwords_int"}
+        )
+        meta_revenue = _sum_appsflyer_revenue(
+            appsflyer, period_start, period_end, media_sources={"Facebook Ads"}
+        )
+        asa_revenue = _sum_appsflyer_revenue(
+            appsflyer, period_start, period_end, media_sources={"Apple Search Ads"}
+        )
+        tiktok_revenue = _sum_appsflyer_revenue(
+            appsflyer, period_start, period_end, media_sources={"tiktokglobal_int"}
+        )
+        total_revenue = google_revenue + meta_revenue + asa_revenue + tiktok_revenue
         total_cost = google_cost + meta_cost + asa_cost
 
         values[period] = {
@@ -398,8 +484,15 @@ def generate_app_report(
         }
 
         region_revenue_total = 0.0
+        buy_media_sources = set(APPSFLYER_BUY_CHANNELS)
         for region in REGIONS:
-            revenue = float(manual.get(f"region_revenue_{region}_{period}", 0.0))
+            revenue = _sum_appsflyer_revenue(
+                appsflyer,
+                period_start,
+                period_end,
+                media_sources=buy_media_sources,
+                country=APPSFLYER_REGION_COUNTRIES[region],
+            )
             region_revenue_total += revenue
             values[period][f"地区收入_{region}"] = revenue
             region_cost = (
@@ -415,7 +508,12 @@ def generate_app_report(
         app_non_subscription_revenue = _sum_order_revenue(
             orders, period_start, period_end, exclude_subscription=True
         )
-        app_natural_revenue = float(manual.get(f"app_natural_revenue_{period}", 0.0))
+        app_natural_revenue = _sum_appsflyer_revenue(
+            appsflyer,
+            period_start,
+            period_end,
+            media_sources=APPSFLYER_NATURAL_CHANNELS,
+        )
         total_values[period] = {
             "APP—新老综合ROI": _safe_div(app_total_revenue, total_cost),
             "APP—新用户综合ROI（D0）": _safe_div(app_new_revenue, total_cost),

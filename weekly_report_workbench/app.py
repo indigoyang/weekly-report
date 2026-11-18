@@ -30,7 +30,7 @@ st.set_page_config(page_title="数据自动化", page_icon="A", layout="wide", i
 
 # 报告结构升级时清理当前浏览器会话里旧版本生成的结果。
 # 否则Streamlit热更新后，页面可能继续显示更新前缓存的4份报告。
-REPORT_SCHEMA_VERSION = "2026-11-17-ugc-app-revenue-v13"
+REPORT_SCHEMA_VERSION = "2026-11-18-appsflyer-revenue-v14"
 if st.session_state.get("report_schema_version") != REPORT_SCHEMA_VERSION:
     st.session_state.pop("reports", None)
     st.session_state.pop("warnings", None)
@@ -391,11 +391,11 @@ if active_port == "app":
         <header class="topbar">
           <div class="eyebrow">APP Report Workbench</div>
           <h1>APP数据自动化</h1>
-          <p>上传Google、Meta与ASA消耗，补充投放平台收入，生成APP投放营收表</p>
+          <p>上传Google、Meta、ASA消耗和AppsFlyer营收，自动生成APP投放营收表</p>
           <div class="steps">
             <div class="step done"><b>✓</b>选择周期</div><div class="step-line"></div>
-            <div class="step on"><b>02</b>上传消耗</div><div class="step-line"></div>
-            <div class="step"><b>03</b>补充收入</div><div class="step-line"></div>
+            <div class="step on"><b>02</b>上传数据</div><div class="step-line"></div>
+            <div class="step"><b>03</b>确认目标</div><div class="step-line"></div>
             <div class="step"><b>04</b>生成表格</div>
           </div>
         </header>
@@ -420,7 +420,7 @@ if active_port == "app":
     with app_main:
         with st.container(border=True, key="app_upload_box"):
             app_upload_header = st.empty()
-            app_u1, app_u2, app_u3 = st.columns(3)
+            app_u1, app_u2, app_u3, app_u4 = st.columns(4)
             with app_u1:
                 app_google_upload_version = st.session_state.get("app_google_upload_version", 0)
                 app_google_files = st.file_uploader(
@@ -463,67 +463,42 @@ if active_port == "app":
                     st.session_state["app_asa_upload_version"] = app_asa_upload_version + 1
                     invalidate_app_outputs()
                     st.rerun()
+            with app_u4:
+                app_appsflyer_upload_version = st.session_state.get("app_appsflyer_upload_version", 0)
+                app_appsflyer_files = st.file_uploader(
+                    "**AppsFlyer营收**  \n分天、地区与媒体渠道营收",
+                    type=["xlsx", "xlsm", "csv"], accept_multiple_files=True,
+                    key=f"app_appsflyer_files_{app_appsflyer_upload_version}",
+                )
+                st.markdown(app_upload_status(app_appsflyer_files), unsafe_allow_html=True)
+                if app_appsflyer_files and st.button(
+                    "删除AppsFlyer营收文件", key="clear_app_appsflyer", use_container_width=True
+                ):
+                    st.session_state["app_appsflyer_upload_version"] = app_appsflyer_upload_version + 1
+                    invalidate_app_outputs()
+                    st.rerun()
             app_uploaded_count = sum(
-                bool(value) for value in (app_google_files, app_meta_files, app_asa_files)
+                bool(value)
+                for value in (app_google_files, app_meta_files, app_asa_files, app_appsflyer_files)
             )
             shared_order_files = st.session_state.get("shared_order_files", [])
             app_upload_header.markdown(
-                f'<div class="upload-head"><div><h2>上传消耗数据</h2>'
-                f'<p>按日期和地区自动汇总</p></div>'
-                f'<div class="upload-count">{app_uploaded_count} / 3 已完成</div></div>',
+                f'<div class="upload-head"><div><h2>上传APP数据</h2>'
+                f'<p>消耗按平台汇总，收入按AppsFlyer媒体渠道与地区汇总</p></div>'
+                f'<div class="upload-count">{app_uploaded_count} / 4 已完成</div></div>',
                 unsafe_allow_html=True,
             )
 
         st.markdown(
-            '<div class="section-label">02 补充手动数据</div>'
-            '<div class="section-note">投放平台收入暂无自动数据源，按本周、上周、MTD填写。</div>',
+            '<div class="section-label">02 固定成本与月度目标</div>'
+            '<div class="section-note">平台收入、地区收入和自然收入均由AppsFlyer自动计算。</div>',
             unsafe_allow_html=True,
         )
         app_manual = {}
         app_saved_manual = st.session_state.get("app_manual_saved", {})
         app_periods = (("本周", "本周"), ("上周", "上周"), ("MTD", "累计 / MTD"))
 
-        with st.expander("投放平台收入", expanded=True):
-            for prefix, title in (
-                ("google_revenue", "Google收入（D7）"),
-                ("meta_revenue", "Meta收入（D7）"),
-                ("asa_revenue", "ASA收入（D7）"),
-            ):
-                st.markdown(f"**{title}**")
-                columns = st.columns(3)
-                for column, (period, label) in zip(columns, app_periods):
-                    manual_key = f"{prefix}_{period}"
-                    app_manual[manual_key] = column.number_input(
-                        label, min_value=0.0, value=float(app_saved_manual.get(manual_key, 0.0)),
-                        key=f"app_{manual_key}",
-                    )
-
-        with st.expander("地区买量收入（手动填写）", expanded=False):
-            st.caption("填写台湾、韩国、印度、印度尼西亚的Google + Meta + ASA收入合计；其他地区由总收入减去这四个地区自动得到。")
-            for region in ("台湾", "韩国", "印度", "印度尼西亚"):
-                st.markdown(f"**{region}收入**")
-                columns = st.columns(3)
-                for column, (period, label) in zip(columns, app_periods):
-                    manual_key = f"region_revenue_{region}_{period}"
-                    app_manual[manual_key] = column.number_input(
-                        label, min_value=0.0, value=float(app_saved_manual.get(manual_key, 0.0)),
-                        key=f"app_region_revenue_{region}_{period}",
-                    )
-
-        with st.expander("APP总数据补充", expanded=False):
-            st.caption(
-                "APP自然量收入按本周、上周和MTD手动填写；总收入、新用户收入和老用户收入"
-                "会自动读取Web页面上传的订单表。"
-            )
-            st.markdown("**APP自然量收入**")
-            columns = st.columns(3)
-            for column, (period, label) in zip(columns, app_periods):
-                manual_key = f"app_natural_revenue_{period}"
-                app_manual[manual_key] = column.number_input(
-                    label, min_value=0.0,
-                    value=float(app_saved_manual.get(manual_key, 0.0)),
-                    key=f"app_{manual_key}",
-                )
+        with st.expander("APP总表固定成本", expanded=False):
             st.markdown("**模型固定成本（仅计入APP&WEB总表含固定成本口径）**")
             columns = st.columns(3)
             for column, (period, label) in zip(columns, app_periods):
@@ -641,13 +616,14 @@ if active_port == "app":
         st.markdown('</div>', unsafe_allow_html=True)
 
         app_completed = 1 + app_uploaded_count + int(bool(shared_order_files))
-        app_readiness = int(app_completed / 5 * 100)
+        app_readiness = int(app_completed / 6 * 100)
         app_tasks = (
             ("报告周期", True),
             ("Web订单数据", bool(shared_order_files)),
             ("Google消耗", bool(app_google_files)),
             ("Meta消耗", bool(app_meta_files)),
             ("ASA消耗", bool(app_asa_files)),
+            ("AppsFlyer营收", bool(app_appsflyer_files)),
         )
         app_tasks_html = "".join(
             f'<div class="task"><b>{"✓" if done else "○"} {name}</b>'
@@ -657,22 +633,27 @@ if active_port == "app":
         st.markdown(
             f'<div class="panel"><div class="panel-title">报告准备度<span>{app_readiness}%</span></div>'
             f'<div class="mini-metrics"><div class="mini-metric"><strong>{app_readiness}%</strong><small>当前进度</small></div>'
-            f'<div class="mini-metric"><strong>{app_completed} / 5</strong><small>已完成项目</small></div></div>'
+            f'<div class="mini-metric"><strong>{app_completed} / 6</strong><small>已完成项目</small></div></div>'
             f'<div class="progress-track"><i style="width:{app_readiness}%"></i></div><div style="height:10px"></div>'
             f'{app_tasks_html}</div>',
             unsafe_allow_html=True,
         )
         st.markdown(
             '<div class="panel"><div class="panel-title">本次输出<span>APP工作簿</span></div>'
-            '<div class="timeline"><div class="event"><b>自动汇总消耗</b><span>Google / Meta / ASA按周期和地区统计</span></div>'
+            '<div class="timeline"><div class="event"><b>自动汇总消耗与收入</b><span>消耗来自广告平台，收入来自AppsFlyer</span></div>'
             '<div class="event"><b>生成Excel</b><span>沿用APP投放表格格式</span></div></div></div>',
             unsafe_allow_html=True,
         )
-        app_ready = all((shared_order_files, app_google_files, app_meta_files, app_asa_files)) and app_start <= app_end
+        app_ready = all((
+            shared_order_files, app_google_files, app_meta_files,
+            app_asa_files, app_appsflyer_files,
+        )) and app_start <= app_end
         if not shared_order_files:
             app_button_label = "请先到Web页面上传订单数据"
         elif not all((app_google_files, app_meta_files, app_asa_files)):
             app_button_label = "请先上传Google、Meta和ASA消耗"
+        elif not app_appsflyer_files:
+            app_button_label = "请上传AppsFlyer营收"
         else:
             app_button_label = "✦ 生成APP工作簿"
         app_generate = st.button(
@@ -695,10 +676,12 @@ if active_port == "app":
                     st.write(f"Meta消耗：{len(app_meta):,} 行")
                     app_asa = read_app_uploads(app_asa_files, "asa")
                     st.write(f"ASA消耗：{len(app_asa):,} 行")
+                    app_appsflyer = read_app_uploads(app_appsflyer_files, "appsflyer")
+                    st.write(f"AppsFlyer营收：{len(app_appsflyer):,} 行")
                     app_orders = read_uploads(shared_order_files)
                     st.write(f"Web订单数据：{len(app_orders):,} 行")
                     filename, content, warnings, costs, app_summary = generate_app_report(
-                        app_google, app_meta, app_asa, app_orders,
+                        app_google, app_meta, app_asa, app_appsflyer, app_orders,
                         app_start, app_end, app_manual, app_targets
                     )
                     st.session_state["app_report"] = (filename, content)
