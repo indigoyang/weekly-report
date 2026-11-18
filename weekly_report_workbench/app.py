@@ -30,7 +30,7 @@ st.set_page_config(page_title="数据自动化", page_icon="A", layout="wide", i
 
 # 报告结构升级时清理当前浏览器会话里旧版本生成的结果。
 # 否则Streamlit热更新后，页面可能继续显示更新前缓存的4份报告。
-REPORT_SCHEMA_VERSION = "2026-11-18-appsflyer-revenue-v14"
+REPORT_SCHEMA_VERSION = "2026-11-18-ugc-app-costs-v16"
 if st.session_state.get("report_schema_version") != REPORT_SCHEMA_VERSION:
     st.session_state.pop("reports", None)
     st.session_state.pop("warnings", None)
@@ -256,6 +256,16 @@ if active_port == "ugc":
     )
     ugc_reg_files = st.session_state.get("shared_registration_files", [])
     ugc_order_files = st.session_state.get("shared_order_files", [])
+    ugc_google_files = st.session_state.get("shared_web_google_files", [])
+    ugc_bing_files = st.session_state.get("shared_web_bing_files", [])
+    ugc_app_google_files = st.session_state.get("shared_app_google_files", [])
+    ugc_app_meta_files = st.session_state.get("shared_app_meta_files", [])
+    ugc_app_asa_files = st.session_state.get("shared_app_asa_files", [])
+    ugc_web_manual = (
+        st.session_state.get("web_manual_saved")
+        or st.session_state.get("web_manual_current")
+        or {}
+    )
     today = date.today()
     ugc_default_end = today - timedelta(days=1)
     ugc_default_start = ugc_default_end - timedelta(days=6)
@@ -311,6 +321,15 @@ if active_port == "ugc":
                     st.session_state["ugc_app_order_version"] = ugc_app_order_version + 1
                     st.session_state.pop("ugc_report", None)
                     st.rerun()
+            st.markdown("**复用APP投放页消耗数据**")
+            app_cost_source_rows = pd.DataFrame([
+                {"数据": "APP Google消耗", "状态": "已就绪" if ugc_app_google_files else "未上传"},
+                {"数据": "APP Meta消耗", "状态": "已就绪" if ugc_app_meta_files else "未上传"},
+                {"数据": "APP ASA消耗", "状态": "已就绪" if ugc_app_asa_files else "未上传"},
+            ])
+            st.dataframe(app_cost_source_rows, hide_index=True, use_container_width=True)
+            if not all((ugc_app_google_files, ugc_app_meta_files, ugc_app_asa_files)):
+                st.info("请先进入左侧“App 周报”，上传Google、Meta和ASA消耗。")
         with st.container(border=True, key="ugc_web_source_box"):
             st.markdown(
                 '<div class="upload-head"><div><h2>复用Web源数据</h2>'
@@ -320,10 +339,19 @@ if active_port == "ugc":
             source_rows = pd.DataFrame([
                 {"数据": "Web注册数据", "状态": "已就绪" if ugc_reg_files else "未上传"},
                 {"数据": "Web订单数据", "状态": "已就绪" if ugc_order_files else "未上传"},
+                {"数据": "Google消耗", "状态": "已就绪" if ugc_google_files else "未上传"},
+                {"数据": "Bing消耗", "状态": "已就绪" if ugc_bing_files else "未上传"},
+                {
+                    "数据": "UGC专项费用",
+                    "状态": "已读取" if ugc_web_manual else "未读取Web手动数据",
+                },
             ])
             st.dataframe(source_rows, hide_index=True, use_container_width=True)
-            if not ugc_reg_files or not ugc_order_files:
-                st.info("请先进入左侧“Web 周报”，上传注册数据和订单数据。上传后返回本页即可直接生成。")
+            if not all((ugc_reg_files, ugc_order_files, ugc_google_files, ugc_bing_files)):
+                st.info(
+                    "请先进入左侧“Web 周报”，上传注册、订单、Google和Bing数据，"
+                    "并填写UGC专项费用。上传后返回本页即可直接生成。"
+                )
     with ugc_side:
         st.markdown('<div class="panel"><div class="panel-title">UGC报告周期<span>自动保存</span></div>', unsafe_allow_html=True)
         ugc_start = st.date_input("开始日期", ugc_default_start, key="ugc_report_start")
@@ -332,13 +360,17 @@ if active_port == "ugc":
         st.markdown('</div>', unsafe_allow_html=True)
         ugc_ready = bool(
             ugc_reg_files and ugc_order_files
+            and ugc_google_files and ugc_bing_files
             and ugc_app_reg_files and ugc_app_order_files
+            and ugc_app_google_files and ugc_app_meta_files and ugc_app_asa_files
             and ugc_start <= ugc_end
         )
-        if not ugc_reg_files or not ugc_order_files:
-            ugc_button_label = "请先到Web页面上传订单和注册数据"
+        if not all((ugc_reg_files, ugc_order_files, ugc_google_files, ugc_bing_files)):
+            ugc_button_label = "请先到Web页面上传四类数据"
         elif not ugc_app_reg_files or not ugc_app_order_files:
             ugc_button_label = "请上传APP注册和订单数据"
+        elif not all((ugc_app_google_files, ugc_app_meta_files, ugc_app_asa_files)):
+            ugc_button_label = "请先到App页面上传三类消耗"
         else:
             ugc_button_label = "✦ 生成UGC数据监控表"
         ugc_generate = st.button(
@@ -356,12 +388,24 @@ if active_port == "ugc":
                     st.write(f"Web注册数据：{len(ugc_reg):,} 行")
                     ugc_orders = read_uploads(ugc_order_files)
                     st.write(f"Web订单数据：{len(ugc_orders):,} 行")
+                    ugc_google = read_uploads(ugc_google_files)
+                    st.write(f"Google消耗：{len(ugc_google):,} 行")
+                    ugc_bing = read_uploads(ugc_bing_files)
+                    st.write(f"Bing消耗：{len(ugc_bing):,} 行")
                     ugc_app_reg = read_uploads(ugc_app_reg_files)
                     st.write(f"APP注册数据：{len(ugc_app_reg):,} 行")
                     ugc_app_orders = read_uploads(ugc_app_order_files)
                     st.write(f"APP订单数据：{len(ugc_app_orders):,} 行")
+                    ugc_app_google = read_app_uploads(ugc_app_google_files, "google")
+                    st.write(f"APP Google消耗：{len(ugc_app_google):,} 行")
+                    ugc_app_meta = read_app_uploads(ugc_app_meta_files, "meta")
+                    st.write(f"APP Meta消耗：{len(ugc_app_meta):,} 行")
+                    ugc_app_asa = read_app_uploads(ugc_app_asa_files, "asa")
+                    st.write(f"APP ASA消耗：{len(ugc_app_asa):,} 行")
                     st.session_state["ugc_report"] = generate_ugc_report(
-                        ugc_reg, ugc_orders, ugc_app_reg, ugc_app_orders,
+                        ugc_reg, ugc_orders, ugc_google, ugc_bing, ugc_web_manual,
+                        ugc_app_reg, ugc_app_orders,
+                        ugc_app_google, ugc_app_meta, ugc_app_asa,
                         ugc_start, ugc_end
                     )
                     status.update(label="UGC数据监控表已生成", state="complete", expanded=False)
@@ -428,12 +472,15 @@ if active_port == "app":
                     type=["xlsx", "xlsm", "csv"], accept_multiple_files=True,
                     key=f"app_google_files_{app_google_upload_version}",
                 )
+                if app_google_files:
+                    st.session_state["shared_app_google_files"] = list(app_google_files)
                 st.markdown(app_upload_status(app_google_files), unsafe_allow_html=True)
                 if app_google_files and st.button(
                     "删除已上传的Google文件", key="clear_app_google", use_container_width=True
                 ):
                     st.session_state["app_google_upload_version"] = app_google_upload_version + 1
                     invalidate_app_outputs()
+                    st.session_state.pop("shared_app_google_files", None)
                     st.rerun()
             with app_u2:
                 app_meta_upload_version = st.session_state.get("app_meta_upload_version", 0)
@@ -442,12 +489,15 @@ if active_port == "app":
                     type=["xlsx", "xlsm", "csv"], accept_multiple_files=True,
                     key=f"app_meta_files_{app_meta_upload_version}",
                 )
+                if app_meta_files:
+                    st.session_state["shared_app_meta_files"] = list(app_meta_files)
                 st.markdown(app_upload_status(app_meta_files), unsafe_allow_html=True)
                 if app_meta_files and st.button(
                     "删除已上传的Meta文件", key="clear_app_meta", use_container_width=True
                 ):
                     st.session_state["app_meta_upload_version"] = app_meta_upload_version + 1
                     invalidate_app_outputs()
+                    st.session_state.pop("shared_app_meta_files", None)
                     st.rerun()
             app_u3, app_u4 = st.columns(2)
             with app_u3:
@@ -457,12 +507,15 @@ if active_port == "app":
                     type=["xlsx", "xlsm", "csv"], accept_multiple_files=True,
                     key=f"app_asa_files_{app_asa_upload_version}",
                 )
+                if app_asa_files:
+                    st.session_state["shared_app_asa_files"] = list(app_asa_files)
                 st.markdown(app_upload_status(app_asa_files), unsafe_allow_html=True)
                 if app_asa_files and st.button(
                     "删除已上传的ASA文件", key="clear_app_asa", use_container_width=True
                 ):
                     st.session_state["app_asa_upload_version"] = app_asa_upload_version + 1
                     invalidate_app_outputs()
+                    st.session_state.pop("shared_app_asa_files", None)
                     st.rerun()
             with app_u4:
                 app_appsflyer_upload_version = st.session_state.get("app_appsflyer_upload_version", 0)
@@ -798,10 +851,13 @@ with main_col:
                 "**Google消耗**  \nGoogle Ads 投放消耗", type=["xlsx","xlsm","csv"],
                 accept_multiple_files=True, key=f"google_files_{google_upload_version}"
             )
+            if google_files:
+                st.session_state["shared_web_google_files"] = list(google_files)
             st.markdown(upload_status(google_files), unsafe_allow_html=True)
             if google_files and st.button("删除已上传的Google文件", key="clear_google_files", use_container_width=True):
                 st.session_state["google_upload_version"] = google_upload_version + 1
                 invalidate_web_outputs()
+                st.session_state.pop("shared_web_google_files", None)
                 st.rerun()
         with u2:
             order_upload_version = st.session_state.get("order_upload_version", 0)
@@ -823,10 +879,13 @@ with main_col:
                 "**Bing消耗**  \nBing Ads 投放消耗", type=["xlsx","xlsm","csv"],
                 accept_multiple_files=True, key=f"bing_files_{bing_upload_version}"
             )
+            if bing_files:
+                st.session_state["shared_web_bing_files"] = list(bing_files)
             st.markdown(upload_status(bing_files), unsafe_allow_html=True)
             if bing_files and st.button("删除已上传的Bing文件", key="clear_bing_files", use_container_width=True):
                 st.session_state["bing_upload_version"] = bing_upload_version + 1
                 invalidate_web_outputs()
+                st.session_state.pop("shared_web_bing_files", None)
                 st.rerun()
         uploaded_count = sum(bool(x) for x in [reg_files, order_files, google_files, bing_files])
         upload_header.markdown(f'<div class="upload-head"><div><h2>上传源数据</h2><p>上传4类数据，系统将自动完成格式检查和数据预处理</p></div><div class="upload-count">{uploaded_count} / 4 已完成</div></div>', unsafe_allow_html=True)
@@ -871,6 +930,7 @@ with main_col:
                     label, min_value=0.0, value=float(web_saved_manual.get(manual_key, 0.0)),
                     key=manual_key,
                 )
+        st.session_state["web_manual_current"] = deepcopy(input_values)
 
     st.markdown('<div id="web-targets" class="target-anchor"></div>', unsafe_allow_html=True)
     with st.expander("月度目标设置（每月填写一次）", expanded=False):
