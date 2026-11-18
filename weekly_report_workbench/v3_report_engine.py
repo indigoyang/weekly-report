@@ -735,8 +735,13 @@ def _copy_sheet(source, destination, title):
             copied = target[cell.coordinate]
             copied.value = cell.value
             if cell.has_style:
-                copied._style = copy(cell._style)
-            if cell.number_format:
+                # 不可跨工作簿直接复制_style：其中的样式索引只属于源工作簿，
+                # 在目标工作簿遇到合并单元格边框时会导致IndexError。
+                copied.font = copy(cell.font)
+                copied.fill = copy(cell.fill)
+                copied.border = copy(cell.border)
+                copied.alignment = copy(cell.alignment)
+                copied.protection = copy(cell.protection)
                 copied.number_format = cell.number_format
             if cell.hyperlink:
                 copied._hyperlink = copy(cell.hyperlink)
