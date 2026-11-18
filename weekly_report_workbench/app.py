@@ -2,7 +2,6 @@ from datetime import date, timedelta
 from copy import deepcopy
 from pathlib import Path
 from io import BytesIO
-from zipfile import ZIP_DEFLATED, ZipFile
 from html import escape
 
 import streamlit as st
@@ -31,7 +30,7 @@ st.set_page_config(page_title="数据自动化", page_icon="A", layout="wide", i
 
 # 报告结构升级时清理当前浏览器会话里旧版本生成的结果。
 # 否则Streamlit热更新后，页面可能继续显示更新前缓存的4份报告。
-REPORT_SCHEMA_VERSION = "2026-11-18-workspace-cache-v17"
+REPORT_SCHEMA_VERSION = "2026-11-18-web-single-workbook-v18"
 if st.session_state.get("report_schema_version") != REPORT_SCHEMA_VERSION:
     st.session_state.pop("reports", None)
     st.session_state.pop("warnings", None)
@@ -1308,13 +1307,13 @@ if generate_clicked:
                     reg, orders, google, bing, None, start, end, input_values,
                     targets=load_targets(), rules=load_rules(),
                 )
-                if len(reports) != 5:
-                    raise RuntimeError(f"报告生成数量异常：应生成5份，实际生成{len(reports)}份，请刷新页面后重试。")
+                if len(reports) != 1:
+                    raise RuntimeError(f"报告生成数量异常：应生成1份，实际生成{len(reports)}份，请刷新页面后重试。")
                 st.session_state["reports"] = reports; st.session_state["warnings"] = warnings
                 st.session_state["web_total_summary"] = web_summary
                 st.session_state["web_report_period"] = (start, end)
                 refresh_total_report()
-                status.update(label="五份周报已生成", state="complete", expanded=False)
+                status.update(label="WEB周报工作簿已生成", state="complete", expanded=False)
     except Exception as exc:
         with main_col: st.exception(exc)
 
@@ -1326,22 +1325,22 @@ if st.session_state.get("reports"):
     )
     with main_col:
         for warning in st.session_state.get("warnings", []): st.warning(warning)
-        st.markdown('<div id="report-result"></div><div class="section-label">03 报告已就绪</div><div class="section-note">可分别下载Excel，也可以一次下载完整压缩包。</div>', unsafe_allow_html=True)
-        cols = st.columns(2)
-        metas = ["全渠道末次归因", "SEM末次归因", "SEM分地区末次归因", "自然来源周报", "会员类型周报"]
-        for index, ((filename, content), meta) in enumerate(zip(reports.items(), metas)):
-            col = cols[index % 2]
-            with col:
-                st.markdown(f'<div class="download-card"><b>{meta}</b><br><span>Excel · {len(content)/1024:.1f} KB</span></div>', unsafe_allow_html=True)
-                st.download_button("下载周报", content, filename, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", use_container_width=True, key=filename)
-        bundle = BytesIO()
-        with ZipFile(bundle, "w", ZIP_DEFLATED) as archive:
-            for filename, content in reports.items(): archive.writestr(filename, content)
-            if st.session_state.get("total_report"):
-                total_filename, total_content = st.session_state["total_report"]
-                archive.writestr(total_filename, total_content)
-        bundle_label = "一键下载五份周报和总表（ZIP）" if st.session_state.get("total_report") else "一键下载五份周报（ZIP）"
-        st.download_button(bundle_label, bundle.getvalue(), f"末次归因周报_{start:%Y.%m.%d}-{end:%Y.%m.%d}.zip", "application/zip", type="primary", use_container_width=True)
+        st.markdown(
+            '<div id="report-result"></div><div class="section-label">03 报告已就绪</div>'
+            '<div class="section-note">全渠道、SEM、SEM分地区、自然来源和会员类型已合并到同一Excel的不同Sheet。</div>',
+            unsafe_allow_html=True,
+        )
+        filename, content = next(iter(reports.items()))
+        st.markdown(
+            f'<div class="download-card"><b>WEB周报工作簿</b><br>'
+            f'<span>Excel · {len(content)/1024:.1f} KB</span></div>',
+            unsafe_allow_html=True,
+        )
+        st.download_button(
+            "下载WEB周报工作簿", content, filename,
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            type="primary", use_container_width=True, key="download_web_workbook",
+        )
         if st.session_state.get("total_report"):
             total_filename, total_content = st.session_state["total_report"]
             st.markdown(
@@ -1357,7 +1356,7 @@ if st.session_state.get("reports"):
 st.markdown('<div class="page-bottom-spacer" aria-hidden="true"></div>', unsafe_allow_html=True)
 st.markdown(
     '<div id="help"></div><div class="fixed-footer"><span>'
-    '文件仅用于本次浏览器会话 · 刷新页面后需重新上传'
+    '文件临时保存24小时 · 同一工作区链接刷新后可恢复'
     '<a href="#web-targets">跳到月度目标</a></span>'
     '<b>DATA AUTOMATION · 周报工作台</b></div>',
     unsafe_allow_html=True,

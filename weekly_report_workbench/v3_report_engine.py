@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections import defaultdict
-from copy import copy
+from copy import copy, deepcopy
 from datetime import date, timedelta
 from importlib.util import module_from_spec, spec_from_file_location
 from io import BytesIO
@@ -711,6 +711,79 @@ def _wb_bytes(wb):
     bio = BytesIO(); wb.save(bio); bio.seek(0); return bio.getvalue()
 
 
+def _copy_sheet(source, destination, title):
+    """跨工作簿复制工作表，保留单元格格式、合并、尺寸和打印设置。"""
+    target = destination.create_sheet(title=title)
+    target.sheet_format = copy(source.sheet_format)
+    target.sheet_properties = copy(source.sheet_properties)
+    target.page_margins = copy(source.page_margins)
+    target.page_setup = copy(source.page_setup)
+    target.print_options = copy(source.print_options)
+    target.freeze_panes = source.freeze_panes
+    target.sheet_state = source.sheet_state
+    target.sheet_view.showGridLines = source.sheet_view.showGridLines
+    target.sheet_view.zoomScale = source.sheet_view.zoomScale
+    target.auto_filter.ref = source.auto_filter.ref
+    if source.print_area:
+        target.print_area = source.print_area
+    for key, dimension in source.row_dimensions.items():
+        target.row_dimensions[key] = copy(dimension)
+    for key, dimension in source.column_dimensions.items():
+        target.column_dimensions[key] = copy(dimension)
+    for row in source.iter_rows():
+        for cell in row:
+            copied = target[cell.coordinate]
+            copied.value = cell.value
+            if cell.has_style:
+                copied._style = copy(cell._style)
+            if cell.number_format:
+                copied.number_format = cell.number_format
+            if cell.hyperlink:
+                copied._hyperlink = copy(cell.hyperlink)
+            if cell.comment:
+                copied.comment = copy(cell.comment)
+    for merged in source.merged_cells.ranges:
+        target.merge_cells(str(merged))
+    target.conditional_formatting = copy(source.conditional_formatting)
+    target.data_validations = copy(source.data_validations)
+    target.sheet_properties.pageSetUpPr = copy(source.sheet_properties.pageSetUpPr)
+    target.oddHeader = copy(source.oddHeader)
+    target.oddFooter = copy(source.oddFooter)
+    target.evenHeader = copy(source.evenHeader)
+    target.evenFooter = copy(source.evenFooter)
+    target.firstHeader = copy(source.firstHeader)
+    target.firstFooter = copy(source.firstFooter)
+    for chart in source._charts:
+        target.add_chart(deepcopy(chart), deepcopy(chart.anchor))
+    for image in source._images:
+        target.add_image(deepcopy(image), deepcopy(image.anchor))
+    return target
+
+
+def _combined_web_workbook(groups):
+    workbook = Workbook()
+    workbook.remove(workbook.active)
+    used_titles = set()
+    for group_name, source_workbook in groups:
+        for index, source_sheet in enumerate(source_workbook.worksheets, 1):
+            if len(source_workbook.worksheets) == 1:
+                base_title = group_name
+            elif source_sheet.title.lower() in {"sheet", "sheet1", "sheet2"}:
+                base_title = f"{group_name}-{index}"
+            else:
+                base_title = source_sheet.title
+            title = base_title[:31]
+            suffix = 2
+            while title in used_titles:
+                tail = f"-{suffix}"
+                title = f"{base_title[:31-len(tail)]}{tail}"
+                suffix += 1
+            used_titles.add(title)
+            _copy_sheet(source_sheet, workbook, title)
+    workbook.active = 0
+    return workbook
+
+
 def _remove_metric_rows(ws, labels):
     """删除指定指标行，并重建H列时间进度合并区域。"""
     time_progress = ws["H4"].value
@@ -865,11 +938,14 @@ def generate_v3_reports(reg, orders, google, bing, mobile, start, end, inputs, t
             "kol_cost": float(natural_metrics.get(f"成本总计_{label}", 0) or 0),
         }
 
+    combined_wb = _combined_web_workbook([
+        ("全渠道", all_wb),
+        ("SEM", sem_wb),
+        ("SEM分地区", region_wb),
+        ("自然来源", natural_wb),
+        ("会员类型", member_wb),
+    ])
     stamp = f"{start:%Y.%m.%d}-{end:%Y.%m.%d}"
     return {
-        f"周报-全渠道_末次归因_{stamp}.xlsx": _wb_bytes(all_wb),
-        f"周报-SEM_末次归因新用户_{stamp}.xlsx": _wb_bytes(sem_wb),
-        f"周报-SEM分地区（末次归因）_{stamp}.xlsx": _wb_bytes(region_wb),
-        f"周报-自然来源_{stamp}.xlsx": _wb_bytes(natural_wb),
-        f"周报-会员类型_{stamp}.xlsx": _wb_bytes(member_wb),
+        f"WEB周报_末次归因_{stamp}.xlsx": _wb_bytes(combined_wb),
     }, warnings, web_summary
