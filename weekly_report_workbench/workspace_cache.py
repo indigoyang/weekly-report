@@ -31,6 +31,11 @@ VALUE_KEYS = (
     "web_manual_saved",
     "web_manual_current",
     "app_manual_saved",
+    "model_fixed_costs",
+    "web_total_summary",
+    "app_total_summary",
+    "web_report_period",
+    "app_report_period",
 )
 
 

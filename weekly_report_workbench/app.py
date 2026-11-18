@@ -30,7 +30,7 @@ st.set_page_config(page_title="数据自动化", page_icon="A", layout="wide", i
 
 # 报告结构升级时清理当前浏览器会话里旧版本生成的结果。
 # 否则Streamlit热更新后，页面可能继续显示更新前缓存的4份报告。
-REPORT_SCHEMA_VERSION = "2026-11-18-web-single-workbook-v18"
+REPORT_SCHEMA_VERSION = "2026-11-18-total-report-fixed-cost-v19"
 if st.session_state.get("report_schema_version") != REPORT_SCHEMA_VERSION:
     st.session_state.pop("reports", None)
     st.session_state.pop("warnings", None)
@@ -52,7 +52,11 @@ def refresh_total_report():
     if not web_summary or not app_summary or not web_period or web_period != app_period:
         st.session_state.pop("total_report", None)
         return False
-    fixed_costs = st.session_state.get("app_fixed_costs", {})
+    fixed_costs = (
+        st.session_state.get("model_fixed_costs")
+        or st.session_state.get("app_fixed_costs")
+        or {}
+    )
     st.session_state["total_report"] = generate_total_report(
         web_summary, app_summary, fixed_costs, web_period[0], web_period[1]
     )
@@ -81,6 +85,11 @@ workspace_id = initialize_workspace(st.query_params, st.session_state)
 
 def persist_workspace():
     save_workspace(workspace_id, st.session_state)
+
+
+# 刷新页面后如果24小时工作区已恢复两端汇总，立即重建APP&WEB总表。
+if st.session_state.get("web_total_summary") and st.session_state.get("app_total_summary"):
+    refresh_total_report()
 
 st.markdown("""
 <style>
@@ -583,24 +592,11 @@ if active_port == "app":
             )
 
         st.markdown(
-            '<div class="section-label">02 固定成本与月度目标</div>'
+            '<div class="section-label">02 APP月度目标</div>'
             '<div class="section-note">平台收入、地区收入和自然收入均由AppsFlyer自动计算。</div>',
             unsafe_allow_html=True,
         )
         app_manual = {}
-        app_saved_manual = st.session_state.get("app_manual_saved", {})
-        app_periods = (("本周", "本周"), ("上周", "上周"), ("MTD", "累计 / MTD"))
-
-        with st.expander("APP总表固定成本", expanded=False):
-            st.markdown("**模型固定成本（仅计入APP&WEB总表含固定成本口径）**")
-            columns = st.columns(3)
-            for column, (period, label) in zip(columns, app_periods):
-                manual_key = f"model_fixed_cost_{period}"
-                app_manual[manual_key] = column.number_input(
-                    label, min_value=0.0,
-                    value=float(app_saved_manual.get(manual_key, 0.0)),
-                    key=f"app_{manual_key}",
-                )
 
         app_target_defaults = {
             "APP—新老综合ROI": 1.5,
@@ -680,27 +676,6 @@ if active_port == "app":
                 str(row["指标"]): float(row["目标"] or 0.0)
                 for row in edited_targets.to_dict("records")
             }
-
-        # 所有手动数据与月度目标填写完成后，再统一暂存。
-        app_save_col, app_save_status_col = st.columns([1, 2.2], gap="small")
-        with app_save_col:
-            app_saved_now = st.button(
-                "暂存当前手动数据", key="save_app_manual", use_container_width=True
-            )
-        if app_saved_now:
-            st.session_state["app_manual_saved"] = deepcopy(app_manual)
-            persist_workspace()
-        with app_save_status_col:
-            if app_saved_now:
-                st.markdown(
-                    '<div class="inline-save-status">✓ 已暂存到当前浏览器会话；重新上传文件不会丢失。</div>',
-                    unsafe_allow_html=True,
-                )
-            elif st.session_state.get("app_manual_saved"):
-                st.markdown(
-                    '<div class="inline-save-status">✓ 当前手动数据已暂存。</div>',
-                    unsafe_allow_html=True,
-                )
 
     with app_side:
         st.markdown('<div class="panel"><div class="panel-title">APP报告周期<span>自动保存</span></div>', unsafe_allow_html=True)
@@ -783,11 +758,8 @@ if active_port == "app":
                     st.session_state["app_cost_summary"] = costs
                     st.session_state["app_total_summary"] = app_summary
                     st.session_state["app_report_period"] = (app_start, app_end)
-                    st.session_state["app_fixed_costs"] = {
-                        period: float(app_manual.get(f"model_fixed_cost_{period}", 0.0) or 0.0)
-                        for period in ("本周", "上周", "MTD")
-                    }
                     refresh_total_report()
+                    persist_workspace()
                     status.update(label="APP工作簿已生成", state="complete", expanded=False)
         except Exception as exc:
             with app_main:
@@ -949,9 +921,19 @@ with main_col:
     st.markdown('<div id="manual-data"></div><div class="section-label">02 补充手动数据</div><div class="section-note">对应全渠道周报中的成本、流量和退款；没有数据时可保持为0。</div>', unsafe_allow_html=True)
     with st.expander("展开填写成本、流量和退款", expanded=False):
         input_values = {}
-        web_saved_manual = st.session_state.get("web_manual_saved", {})
+        web_saved_manual = {
+            **st.session_state.get("app_manual_saved", {}),
+            **st.session_state.get("web_manual_saved", {}),
+        }
         periods = [("本周","本周"),("上周","上周"),("MTD","累计 / MTD")]
-        groups = [("commission","affiliate分佣成本"),("seo","SEO—外链成本"),("pc_flow","PC流量"),("h5_flow","H5流量"),("refund","PC端退款金额")]
+        groups = [
+            ("commission","affiliate分佣成本"),
+            ("seo","SEO—外链成本"),
+            ("model_fixed_cost","模型固定成本（仅计入APP&WEB总表含固定成本口径）"),
+            ("pc_flow","PC流量"),
+            ("h5_flow","H5流量"),
+            ("refund","PC端退款金额"),
+        ]
         for prefix, title in groups:
             st.markdown(f"**{title}**")
             cols = st.columns(3)
@@ -987,6 +969,10 @@ with main_col:
                     key=manual_key,
                 )
         st.session_state["web_manual_current"] = deepcopy(input_values)
+        st.session_state["model_fixed_costs"] = {
+            period: float(input_values.get(f"model_fixed_cost_{period}", 0.0) or 0.0)
+            for period in ("本周", "上周", "MTD")
+        }
 
     st.markdown('<div id="web-targets" class="target-anchor"></div>', unsafe_allow_html=True)
     with st.expander("月度目标设置（每月填写一次）", expanded=False):
@@ -1313,6 +1299,7 @@ if generate_clicked:
                 st.session_state["web_total_summary"] = web_summary
                 st.session_state["web_report_period"] = (start, end)
                 refresh_total_report()
+                persist_workspace()
                 status.update(label="WEB周报工作簿已生成", state="complete", expanded=False)
     except Exception as exc:
         with main_col: st.exception(exc)
@@ -1352,6 +1339,15 @@ if st.session_state.get("reports"):
                 "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                 use_container_width=True, key="download_total_report_web",
             )
+        else:
+            app_period = st.session_state.get("app_report_period")
+            if not st.session_state.get("app_total_summary"):
+                st.info("APP&WEB总数据尚未生成：请先到App页面生成APP工作簿。")
+            elif app_period != (start, end):
+                st.info(
+                    "APP&WEB总数据尚未生成：App与Web报告周期不一致，"
+                    "请使用相同的开始日期和结束日期重新生成其中一端。"
+                )
 
 st.markdown('<div class="page-bottom-spacer" aria-hidden="true"></div>', unsafe_allow_html=True)
 st.markdown(
