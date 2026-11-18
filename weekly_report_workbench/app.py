@@ -24,13 +24,14 @@ from target_store import (
     save_targets,
 )
 from rule_store import load_rules, save_rules, validate_rules
+from workspace_cache import initialize_workspace, save_workspace
 
 
 st.set_page_config(page_title="数据自动化", page_icon="A", layout="wide", initial_sidebar_state="expanded")
 
 # 报告结构升级时清理当前浏览器会话里旧版本生成的结果。
 # 否则Streamlit热更新后，页面可能继续显示更新前缓存的4份报告。
-REPORT_SCHEMA_VERSION = "2026-11-18-ugc-app-costs-v16"
+REPORT_SCHEMA_VERSION = "2026-11-18-workspace-cache-v17"
 if st.session_state.get("report_schema_version") != REPORT_SCHEMA_VERSION:
     st.session_state.pop("reports", None)
     st.session_state.pop("warnings", None)
@@ -76,6 +77,11 @@ admin_mode = str(st.query_params.get("admin", "")) == "1"
 active_port = str(st.query_params.get("port", "web")).lower()
 if active_port not in {"web", "app", "ugc"}:
     active_port = "web"
+workspace_id = initialize_workspace(st.query_params, st.session_state)
+
+
+def persist_workspace():
+    save_workspace(workspace_id, st.session_state)
 
 st.markdown("""
 <style>
@@ -233,6 +239,7 @@ with st.sidebar:
     if st.button("🎬  UGC数据", key="port_ugc", help="使用Web订单和注册数据生成UGC监控表", use_container_width=True):
         st.query_params["port"] = "ugc"
         st.rerun()
+    st.caption("上传文件和手动数据临时保存24小时；刷新后可恢复。")
 
 active_button_key = {"web": "port_web", "app": "port_app", "ugc": "port_ugc"}[active_port]
 st.markdown(
@@ -301,12 +308,19 @@ if active_port == "ugc":
                     type=["xlsx", "xlsm", "csv"], accept_multiple_files=True,
                     key=f"ugc_app_reg_files_{ugc_app_reg_version}",
                 )
+                if ugc_app_reg_files:
+                    st.session_state["shared_ugc_app_reg_files"] = list(ugc_app_reg_files)
+                    persist_workspace()
+                else:
+                    ugc_app_reg_files = st.session_state.get("shared_ugc_app_reg_files", [])
                 st.markdown(ugc_upload_status(ugc_app_reg_files), unsafe_allow_html=True)
                 if ugc_app_reg_files and st.button(
                     "删除APP注册文件", key="clear_ugc_app_reg", use_container_width=True
                 ):
                     st.session_state["ugc_app_reg_version"] = ugc_app_reg_version + 1
                     st.session_state.pop("ugc_report", None)
+                    st.session_state.pop("shared_ugc_app_reg_files", None)
+                    persist_workspace()
                     st.rerun()
             with ugc_u2:
                 ugc_app_order_files = st.file_uploader(
@@ -314,12 +328,19 @@ if active_port == "ugc":
                     type=["xlsx", "xlsm", "csv"], accept_multiple_files=True,
                     key=f"ugc_app_order_files_{ugc_app_order_version}",
                 )
+                if ugc_app_order_files:
+                    st.session_state["shared_ugc_app_order_files"] = list(ugc_app_order_files)
+                    persist_workspace()
+                else:
+                    ugc_app_order_files = st.session_state.get("shared_ugc_app_order_files", [])
                 st.markdown(ugc_upload_status(ugc_app_order_files), unsafe_allow_html=True)
                 if ugc_app_order_files and st.button(
                     "删除APP订单文件", key="clear_ugc_app_order", use_container_width=True
                 ):
                     st.session_state["ugc_app_order_version"] = ugc_app_order_version + 1
                     st.session_state.pop("ugc_report", None)
+                    st.session_state.pop("shared_ugc_app_order_files", None)
+                    persist_workspace()
                     st.rerun()
             st.markdown("**复用APP投放页消耗数据**")
             app_cost_source_rows = pd.DataFrame([
@@ -474,6 +495,9 @@ if active_port == "app":
                 )
                 if app_google_files:
                     st.session_state["shared_app_google_files"] = list(app_google_files)
+                    persist_workspace()
+                else:
+                    app_google_files = st.session_state.get("shared_app_google_files", [])
                 st.markdown(app_upload_status(app_google_files), unsafe_allow_html=True)
                 if app_google_files and st.button(
                     "删除已上传的Google文件", key="clear_app_google", use_container_width=True
@@ -481,6 +505,7 @@ if active_port == "app":
                     st.session_state["app_google_upload_version"] = app_google_upload_version + 1
                     invalidate_app_outputs()
                     st.session_state.pop("shared_app_google_files", None)
+                    persist_workspace()
                     st.rerun()
             with app_u2:
                 app_meta_upload_version = st.session_state.get("app_meta_upload_version", 0)
@@ -491,6 +516,9 @@ if active_port == "app":
                 )
                 if app_meta_files:
                     st.session_state["shared_app_meta_files"] = list(app_meta_files)
+                    persist_workspace()
+                else:
+                    app_meta_files = st.session_state.get("shared_app_meta_files", [])
                 st.markdown(app_upload_status(app_meta_files), unsafe_allow_html=True)
                 if app_meta_files and st.button(
                     "删除已上传的Meta文件", key="clear_app_meta", use_container_width=True
@@ -498,6 +526,7 @@ if active_port == "app":
                     st.session_state["app_meta_upload_version"] = app_meta_upload_version + 1
                     invalidate_app_outputs()
                     st.session_state.pop("shared_app_meta_files", None)
+                    persist_workspace()
                     st.rerun()
             app_u3, app_u4 = st.columns(2)
             with app_u3:
@@ -509,6 +538,9 @@ if active_port == "app":
                 )
                 if app_asa_files:
                     st.session_state["shared_app_asa_files"] = list(app_asa_files)
+                    persist_workspace()
+                else:
+                    app_asa_files = st.session_state.get("shared_app_asa_files", [])
                 st.markdown(app_upload_status(app_asa_files), unsafe_allow_html=True)
                 if app_asa_files and st.button(
                     "删除已上传的ASA文件", key="clear_app_asa", use_container_width=True
@@ -516,6 +548,7 @@ if active_port == "app":
                     st.session_state["app_asa_upload_version"] = app_asa_upload_version + 1
                     invalidate_app_outputs()
                     st.session_state.pop("shared_app_asa_files", None)
+                    persist_workspace()
                     st.rerun()
             with app_u4:
                 app_appsflyer_upload_version = st.session_state.get("app_appsflyer_upload_version", 0)
@@ -524,12 +557,19 @@ if active_port == "app":
                     type=["xlsx", "xlsm", "csv"], accept_multiple_files=True,
                     key=f"app_appsflyer_files_{app_appsflyer_upload_version}",
                 )
+                if app_appsflyer_files:
+                    st.session_state["shared_app_appsflyer_files"] = list(app_appsflyer_files)
+                    persist_workspace()
+                else:
+                    app_appsflyer_files = st.session_state.get("shared_app_appsflyer_files", [])
                 st.markdown(app_upload_status(app_appsflyer_files), unsafe_allow_html=True)
                 if app_appsflyer_files and st.button(
                     "删除AppsFlyer营收文件", key="clear_app_appsflyer", use_container_width=True
                 ):
                     st.session_state["app_appsflyer_upload_version"] = app_appsflyer_upload_version + 1
                     invalidate_app_outputs()
+                    st.session_state.pop("shared_app_appsflyer_files", None)
+                    persist_workspace()
                     st.rerun()
             app_uploaded_count = sum(
                 bool(value)
@@ -650,6 +690,7 @@ if active_port == "app":
             )
         if app_saved_now:
             st.session_state["app_manual_saved"] = deepcopy(app_manual)
+            persist_workspace()
         with app_save_status_col:
             if app_saved_now:
                 st.markdown(
@@ -839,12 +880,16 @@ with main_col:
             )
             if reg_files:
                 st.session_state["shared_registration_files"] = list(reg_files)
+                persist_workspace()
+            else:
+                reg_files = st.session_state.get("shared_registration_files", [])
             st.markdown(upload_status(reg_files), unsafe_allow_html=True)
             if reg_files and st.button("删除已上传的注册文件", key="clear_reg_files", use_container_width=True):
                 st.session_state["reg_upload_version"] = reg_upload_version + 1
                 invalidate_web_outputs()
                 st.session_state.pop("shared_registration_files", None)
                 st.session_state.pop("ugc_report", None)
+                persist_workspace()
                 st.rerun()
             google_upload_version = st.session_state.get("google_upload_version", 0)
             google_files = st.file_uploader(
@@ -853,11 +898,15 @@ with main_col:
             )
             if google_files:
                 st.session_state["shared_web_google_files"] = list(google_files)
+                persist_workspace()
+            else:
+                google_files = st.session_state.get("shared_web_google_files", [])
             st.markdown(upload_status(google_files), unsafe_allow_html=True)
             if google_files and st.button("删除已上传的Google文件", key="clear_google_files", use_container_width=True):
                 st.session_state["google_upload_version"] = google_upload_version + 1
                 invalidate_web_outputs()
                 st.session_state.pop("shared_web_google_files", None)
+                persist_workspace()
                 st.rerun()
         with u2:
             order_upload_version = st.session_state.get("order_upload_version", 0)
@@ -867,12 +916,16 @@ with main_col:
             )
             if order_files:
                 st.session_state["shared_order_files"] = list(order_files)
+                persist_workspace()
+            else:
+                order_files = st.session_state.get("shared_order_files", [])
             st.markdown(upload_status(order_files), unsafe_allow_html=True)
             if order_files and st.button("删除已上传的订单文件", key="clear_order_files", use_container_width=True):
                 st.session_state["order_upload_version"] = order_upload_version + 1
                 invalidate_web_outputs()
                 st.session_state.pop("shared_order_files", None)
                 st.session_state.pop("ugc_report", None)
+                persist_workspace()
                 st.rerun()
             bing_upload_version = st.session_state.get("bing_upload_version", 0)
             bing_files = st.file_uploader(
@@ -881,11 +934,15 @@ with main_col:
             )
             if bing_files:
                 st.session_state["shared_web_bing_files"] = list(bing_files)
+                persist_workspace()
+            else:
+                bing_files = st.session_state.get("shared_web_bing_files", [])
             st.markdown(upload_status(bing_files), unsafe_allow_html=True)
             if bing_files and st.button("删除已上传的Bing文件", key="clear_bing_files", use_container_width=True):
                 st.session_state["bing_upload_version"] = bing_upload_version + 1
                 invalidate_web_outputs()
                 st.session_state.pop("shared_web_bing_files", None)
+                persist_workspace()
                 st.rerun()
         uploaded_count = sum(bool(x) for x in [reg_files, order_files, google_files, bing_files])
         upload_header.markdown(f'<div class="upload-head"><div><h2>上传源数据</h2><p>上传4类数据，系统将自动完成格式检查和数据预处理</p></div><div class="upload-count">{uploaded_count} / 4 已完成</div></div>', unsafe_allow_html=True)
@@ -1074,6 +1131,7 @@ with main_col:
         )
     if web_saved_now:
         st.session_state["web_manual_saved"] = deepcopy(input_values)
+        persist_workspace()
     with web_save_status_col:
         if web_saved_now:
             st.markdown(
