@@ -420,7 +420,7 @@ if active_port == "app":
     with app_main:
         with st.container(border=True, key="app_upload_box"):
             app_upload_header = st.empty()
-            app_u1, app_u2, app_u3, app_u4 = st.columns(4)
+            app_u1, app_u2 = st.columns(2)
             with app_u1:
                 app_google_upload_version = st.session_state.get("app_google_upload_version", 0)
                 app_google_files = st.file_uploader(
@@ -449,6 +449,7 @@ if active_port == "app":
                     st.session_state["app_meta_upload_version"] = app_meta_upload_version + 1
                     invalidate_app_outputs()
                     st.rerun()
+            app_u3, app_u4 = st.columns(2)
             with app_u3:
                 app_asa_upload_version = st.session_state.get("app_asa_upload_version", 0)
                 app_asa_files = st.file_uploader(
