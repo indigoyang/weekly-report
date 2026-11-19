@@ -12,6 +12,7 @@ from app_report_engine import generate_app_report, read_app_uploads
 from total_report_engine import generate_total_report
 from ugc_report_engine import generate_ugc_report
 from v3_report_engine import generate_v3_reports
+from google_ads_api import fetch_google_costs, google_ads_configured
 from target_store import (
     ALL_CHANNEL_TARGET_METRICS,
     ALL_CHANNEL_TARGET_ROWS,
@@ -85,6 +86,12 @@ workspace_id = initialize_workspace(st.query_params, st.session_state)
 
 def persist_workspace():
     save_workspace(workspace_id, st.session_state)
+
+
+def google_api_date_window(report_start: date, report_end: date) -> tuple[date, date]:
+    """覆盖本周、上周和报告结束日所在月份MTD。"""
+    month_start = report_end.replace(day=1)
+    return min(report_start - timedelta(days=7), month_start), report_end
 
 
 # 刷新页面后如果24小时工作区已恢复两端汇总，立即重建APP&WEB总表。
@@ -276,6 +283,7 @@ if active_port == "ugc":
     ugc_app_google_files = st.session_state.get("shared_app_google_files", [])
     ugc_app_meta_files = st.session_state.get("shared_app_meta_files", [])
     ugc_app_asa_files = st.session_state.get("shared_app_asa_files", [])
+    ugc_google_api_ready = google_ads_configured(st.secrets)
     ugc_web_manual = (
         st.session_state.get("web_manual_saved")
         or st.session_state.get("web_manual_current")
@@ -352,13 +360,13 @@ if active_port == "ugc":
                     st.rerun()
             st.markdown("**复用APP投放页消耗数据**")
             app_cost_source_rows = pd.DataFrame([
-                {"数据": "APP Google消耗", "状态": "已就绪" if ugc_app_google_files else "未上传"},
+                {"数据": "APP Google消耗", "状态": "API已连接" if ugc_google_api_ready else ("已就绪" if ugc_app_google_files else "未上传")},
                 {"数据": "APP Meta消耗", "状态": "已就绪" if ugc_app_meta_files else "未上传"},
                 {"数据": "APP ASA消耗", "状态": "已就绪" if ugc_app_asa_files else "未上传"},
             ])
             st.dataframe(app_cost_source_rows, hide_index=True, use_container_width=True)
-            if not all((ugc_app_google_files, ugc_app_meta_files, ugc_app_asa_files)):
-                st.info("请先进入左侧“App 周报”，上传Google、Meta和ASA消耗。")
+            if not all((ugc_google_api_ready or ugc_app_google_files, ugc_app_meta_files, ugc_app_asa_files)):
+                st.info("请先进入左侧“App 周报”，上传Meta和ASA消耗；Google配置API后会自动读取。")
         with st.container(border=True, key="ugc_web_source_box"):
             st.markdown(
                 '<div class="upload-head"><div><h2>复用Web源数据</h2>'
@@ -368,7 +376,7 @@ if active_port == "ugc":
             source_rows = pd.DataFrame([
                 {"数据": "Web注册数据", "状态": "已就绪" if ugc_reg_files else "未上传"},
                 {"数据": "Web订单数据", "状态": "已就绪" if ugc_order_files else "未上传"},
-                {"数据": "Google消耗", "状态": "已就绪" if ugc_google_files else "未上传"},
+                {"数据": "Google消耗", "状态": "API已连接" if ugc_google_api_ready else ("已就绪" if ugc_google_files else "未上传")},
                 {"数据": "Bing消耗", "状态": "已就绪" if ugc_bing_files else "未上传"},
                 {
                     "数据": "UGC专项费用",
@@ -376,7 +384,7 @@ if active_port == "ugc":
                 },
             ])
             st.dataframe(source_rows, hide_index=True, use_container_width=True)
-            if not all((ugc_reg_files, ugc_order_files, ugc_google_files, ugc_bing_files)):
+            if not all((ugc_reg_files, ugc_order_files, ugc_google_api_ready or ugc_google_files, ugc_bing_files)):
                 st.info(
                     "请先进入左侧“Web 周报”，上传注册、订单、Google和Bing数据，"
                     "并填写UGC专项费用。上传后返回本页即可直接生成。"
@@ -389,17 +397,17 @@ if active_port == "ugc":
         st.markdown('</div>', unsafe_allow_html=True)
         ugc_ready = bool(
             ugc_reg_files and ugc_order_files
-            and ugc_google_files and ugc_bing_files
+            and (ugc_google_api_ready or ugc_google_files) and ugc_bing_files
             and ugc_app_reg_files and ugc_app_order_files
-            and ugc_app_google_files and ugc_app_meta_files and ugc_app_asa_files
+            and (ugc_google_api_ready or ugc_app_google_files) and ugc_app_meta_files and ugc_app_asa_files
             and ugc_start <= ugc_end
         )
-        if not all((ugc_reg_files, ugc_order_files, ugc_google_files, ugc_bing_files)):
-            ugc_button_label = "请先到Web页面上传四类数据"
+        if not all((ugc_reg_files, ugc_order_files, ugc_google_api_ready or ugc_google_files, ugc_bing_files)):
+            ugc_button_label = "请先到Web页面上传注册、订单和Bing数据"
         elif not ugc_app_reg_files or not ugc_app_order_files:
             ugc_button_label = "请上传APP注册和订单数据"
-        elif not all((ugc_app_google_files, ugc_app_meta_files, ugc_app_asa_files)):
-            ugc_button_label = "请先到App页面上传三类消耗"
+        elif not all((ugc_google_api_ready or ugc_app_google_files, ugc_app_meta_files, ugc_app_asa_files)):
+            ugc_button_label = "请先到App页面上传Meta和ASA消耗"
         else:
             ugc_button_label = "✦ 生成UGC数据监控表"
         ugc_generate = st.button(
@@ -417,16 +425,25 @@ if active_port == "ugc":
                     st.write(f"Web注册数据：{len(ugc_reg):,} 行")
                     ugc_orders = read_uploads(ugc_order_files)
                     st.write(f"Web订单数据：{len(ugc_orders):,} 行")
-                    ugc_google = read_uploads(ugc_google_files)
-                    st.write(f"Google消耗：{len(ugc_google):,} 行")
+                    if ugc_google_api_ready:
+                        api_start, api_end = google_api_date_window(ugc_start, ugc_end)
+                        ugc_google = fetch_google_costs(st.secrets, "web", api_start, api_end)
+                        st.write(f"Google消耗（API）：{len(ugc_google):,} 行")
+                    else:
+                        ugc_google = read_uploads(ugc_google_files)
+                        st.write(f"Google消耗：{len(ugc_google):,} 行")
                     ugc_bing = read_uploads(ugc_bing_files)
                     st.write(f"Bing消耗：{len(ugc_bing):,} 行")
                     ugc_app_reg = read_uploads(ugc_app_reg_files)
                     st.write(f"APP注册数据：{len(ugc_app_reg):,} 行")
                     ugc_app_orders = read_uploads(ugc_app_order_files)
                     st.write(f"APP订单数据：{len(ugc_app_orders):,} 行")
-                    ugc_app_google = read_app_uploads(ugc_app_google_files, "google")
-                    st.write(f"APP Google消耗：{len(ugc_app_google):,} 行")
+                    if ugc_google_api_ready:
+                        ugc_app_google = fetch_google_costs(st.secrets, "app", api_start, api_end)
+                        st.write(f"APP Google消耗（API）：{len(ugc_app_google):,} 行")
+                    else:
+                        ugc_app_google = read_app_uploads(ugc_app_google_files, "google")
+                        st.write(f"APP Google消耗：{len(ugc_app_google):,} 行")
                     ugc_app_meta = read_app_uploads(ugc_app_meta_files, "meta")
                     st.write(f"APP Meta消耗：{len(ugc_app_meta):,} 行")
                     ugc_app_asa = read_app_uploads(ugc_app_asa_files, "asa")
@@ -495,26 +512,35 @@ if active_port == "app":
             app_upload_header = st.empty()
             app_u1, app_u2 = st.columns(2)
             with app_u1:
-                app_google_upload_version = st.session_state.get("app_google_upload_version", 0)
-                app_google_files = st.file_uploader(
-                    "**Google消耗**  \nGoogle Ads 投放消耗",
-                    type=["xlsx", "xlsm", "csv"], accept_multiple_files=True,
-                    key=f"app_google_files_{app_google_upload_version}",
-                )
-                if app_google_files:
-                    st.session_state["shared_app_google_files"] = list(app_google_files)
-                    persist_workspace()
+                app_google_api_ready = google_ads_configured(st.secrets)
+                if app_google_api_ready:
+                    app_google_files = []
+                    st.markdown(
+                        "**Google消耗**  \nGoogle Ads API · YM-AiPPT-APP-0508"
+                        '<div class="file-status ok">✓ 已连接 · 按报告周期自动读取</div>',
+                        unsafe_allow_html=True,
+                    )
                 else:
-                    app_google_files = st.session_state.get("shared_app_google_files", [])
-                st.markdown(app_upload_status(app_google_files), unsafe_allow_html=True)
-                if app_google_files and st.button(
-                    "删除已上传的Google文件", key="clear_app_google", use_container_width=True
-                ):
-                    st.session_state["app_google_upload_version"] = app_google_upload_version + 1
-                    invalidate_app_outputs()
-                    st.session_state.pop("shared_app_google_files", None)
-                    persist_workspace()
-                    st.rerun()
+                    app_google_upload_version = st.session_state.get("app_google_upload_version", 0)
+                    app_google_files = st.file_uploader(
+                        "**Google消耗**  \nGoogle Ads 投放消耗",
+                        type=["xlsx", "xlsm", "csv"], accept_multiple_files=True,
+                        key=f"app_google_files_{app_google_upload_version}",
+                    )
+                    if app_google_files:
+                        st.session_state["shared_app_google_files"] = list(app_google_files)
+                        persist_workspace()
+                    else:
+                        app_google_files = st.session_state.get("shared_app_google_files", [])
+                    st.markdown(app_upload_status(app_google_files), unsafe_allow_html=True)
+                    if app_google_files and st.button(
+                        "删除已上传的Google文件", key="clear_app_google", use_container_width=True
+                    ):
+                        st.session_state["app_google_upload_version"] = app_google_upload_version + 1
+                        invalidate_app_outputs()
+                        st.session_state.pop("shared_app_google_files", None)
+                        persist_workspace()
+                        st.rerun()
             with app_u2:
                 app_meta_upload_version = st.session_state.get("app_meta_upload_version", 0)
                 app_meta_files = st.file_uploader(
@@ -581,7 +607,10 @@ if active_port == "app":
                     st.rerun()
             app_uploaded_count = sum(
                 bool(value)
-                for value in (app_google_files, app_meta_files, app_asa_files, app_appsflyer_files)
+                for value in (
+                    app_google_api_ready or app_google_files,
+                    app_meta_files, app_asa_files, app_appsflyer_files,
+                )
             )
             shared_order_files = st.session_state.get("shared_order_files", [])
             app_upload_header.markdown(
@@ -689,7 +718,7 @@ if active_port == "app":
         app_tasks = (
             ("报告周期", True),
             ("Web订单数据", bool(shared_order_files)),
-            ("Google消耗", bool(app_google_files)),
+            ("Google消耗", bool(app_google_api_ready or app_google_files)),
             ("Meta消耗", bool(app_meta_files)),
             ("ASA消耗", bool(app_asa_files)),
             ("AppsFlyer营收", bool(app_appsflyer_files)),
@@ -714,12 +743,12 @@ if active_port == "app":
             unsafe_allow_html=True,
         )
         app_ready = all((
-            shared_order_files, app_google_files, app_meta_files,
+            shared_order_files, app_google_api_ready or app_google_files, app_meta_files,
             app_asa_files, app_appsflyer_files,
         )) and app_start <= app_end
         if not shared_order_files:
             app_button_label = "请先到Web页面上传订单数据"
-        elif not all((app_google_files, app_meta_files, app_asa_files)):
+        elif not all((app_google_api_ready or app_google_files, app_meta_files, app_asa_files)):
             app_button_label = "请先上传Google、Meta和ASA消耗"
         elif not app_appsflyer_files:
             app_button_label = "请上传AppsFlyer营收"
@@ -739,8 +768,16 @@ if active_port == "app":
         try:
             with app_main:
                 with st.status("正在读取APP消耗并生成表格……", expanded=True) as status:
-                    app_google = read_app_uploads(app_google_files, "google")
-                    st.write(f"Google消耗：{len(app_google):,} 行")
+                    if app_google_api_ready:
+                        api_start, api_end = google_api_date_window(app_start, app_end)
+                        app_google = fetch_google_costs(st.secrets, "app", api_start, api_end)
+                        st.write(
+                            f"Google消耗（API）：{len(app_google):,} 行 · "
+                            f"{api_start:%Y-%m-%d} 至 {api_end:%Y-%m-%d}"
+                        )
+                    else:
+                        app_google = read_app_uploads(app_google_files, "google")
+                        st.write(f"Google消耗：{len(app_google):,} 行")
                     app_meta = read_app_uploads(app_meta_files, "meta")
                     st.write(f"Meta消耗：{len(app_meta):,} 行")
                     app_asa = read_app_uploads(app_asa_files, "asa")
@@ -862,23 +899,32 @@ with main_col:
                 st.session_state.pop("ugc_report", None)
                 persist_workspace()
                 st.rerun()
-            google_upload_version = st.session_state.get("google_upload_version", 0)
-            google_files = st.file_uploader(
-                "**Google消耗**  \nGoogle Ads 投放消耗", type=["xlsx","xlsm","csv"],
-                accept_multiple_files=True, key=f"google_files_{google_upload_version}"
-            )
-            if google_files:
-                st.session_state["shared_web_google_files"] = list(google_files)
-                persist_workspace()
+            web_google_api_ready = google_ads_configured(st.secrets)
+            if web_google_api_ready:
+                google_files = []
+                st.markdown(
+                    "**Google消耗**  \nGoogle Ads API · YM-AIppt-0124"
+                    '<div class="file-status ok">✓ 已连接 · 按报告周期自动读取</div>',
+                    unsafe_allow_html=True,
+                )
             else:
-                google_files = st.session_state.get("shared_web_google_files", [])
-            st.markdown(upload_status(google_files), unsafe_allow_html=True)
-            if google_files and st.button("删除已上传的Google文件", key="clear_google_files", use_container_width=True):
-                st.session_state["google_upload_version"] = google_upload_version + 1
-                invalidate_web_outputs()
-                st.session_state.pop("shared_web_google_files", None)
-                persist_workspace()
-                st.rerun()
+                google_upload_version = st.session_state.get("google_upload_version", 0)
+                google_files = st.file_uploader(
+                    "**Google消耗**  \nGoogle Ads 投放消耗", type=["xlsx","xlsm","csv"],
+                    accept_multiple_files=True, key=f"google_files_{google_upload_version}"
+                )
+                if google_files:
+                    st.session_state["shared_web_google_files"] = list(google_files)
+                    persist_workspace()
+                else:
+                    google_files = st.session_state.get("shared_web_google_files", [])
+                st.markdown(upload_status(google_files), unsafe_allow_html=True)
+                if google_files and st.button("删除已上传的Google文件", key="clear_google_files", use_container_width=True):
+                    st.session_state["google_upload_version"] = google_upload_version + 1
+                    invalidate_web_outputs()
+                    st.session_state.pop("shared_web_google_files", None)
+                    persist_workspace()
+                    st.rerun()
         with u2:
             order_upload_version = st.session_state.get("order_upload_version", 0)
             order_files = st.file_uploader(
@@ -915,7 +961,9 @@ with main_col:
                 st.session_state.pop("shared_web_bing_files", None)
                 persist_workspace()
                 st.rerun()
-        uploaded_count = sum(bool(x) for x in [reg_files, order_files, google_files, bing_files])
+        uploaded_count = sum(bool(x) for x in [
+            reg_files, order_files, web_google_api_ready or google_files, bing_files
+        ])
         upload_header.markdown(f'<div class="upload-head"><div><h2>上传源数据</h2><p>上传4类数据，系统将自动完成格式检查和数据预处理</p></div><div class="upload-count">{uploaded_count} / 4 已完成</div></div>', unsafe_allow_html=True)
 
     st.markdown('<div id="manual-data"></div><div class="section-label">02 补充手动数据</div><div class="section-note">对应全渠道周报中的成本、流量和退款；没有数据时可保持为0。</div>', unsafe_allow_html=True)
@@ -1265,11 +1313,11 @@ with side_col:
     st.markdown('</div>', unsafe_allow_html=True)
 
     completed = 1 + uploaded_count; readiness = int(completed / 5 * 100)
-    task_rows = [("报告周期",True),("注册数据",bool(reg_files)),("订单数据",bool(order_files)),("Google消耗",bool(google_files)),("Bing消耗",bool(bing_files))]
+    task_rows = [("报告周期",True),("注册数据",bool(reg_files)),("订单数据",bool(order_files)),("Google消耗",bool(web_google_api_ready or google_files)),("Bing消耗",bool(bing_files))]
     tasks_html = "".join(f'<div class="task"><b>{"✓" if done else "○"} {name}</b><span class="{"done" if done else ""}">{"已完成" if done else "待上传"}</span></div>' for name,done in task_rows)
     st.markdown(f'<div class="panel"><div class="panel-title">报告准备度<span>{readiness}%</span></div><div class="mini-metrics"><div class="mini-metric"><strong>{readiness}%</strong><small>当前进度</small></div><div class="mini-metric"><strong>{completed} / 5</strong><small>已完成项目</small></div></div><div class="progress-track"><i style="width:{readiness}%"></i></div><div style="height:10px"></div>{tasks_html}</div>', unsafe_allow_html=True)
     st.markdown('<div class="panel"><div class="panel-title">自动化流程<span>1–3分钟</span></div><div class="timeline"><div class="event"><b>数据文件检查</b><span>上传后自动校验必要字段</span></div><div class="event"><b>字段自动识别</b><span>兼容Google与Bing中文字段</span></div><div class="event"><b>报告生成</b><span>输出全渠道 / SEM / SEM分地区 / 自然来源 / 会员类型</span></div></div></div>', unsafe_allow_html=True)
-    ready = all([reg_files, order_files, google_files, bing_files]) and start <= end
+    ready = all([reg_files, order_files, web_google_api_ready or google_files, bing_files]) and start <= end
     generate_clicked = st.button(
         "✦ 开始生成报告" if ready else "请先上传全部必要数据",
         type="primary", disabled=not ready, use_container_width=True,
@@ -1285,7 +1333,16 @@ if generate_clicked:
             with st.status("正在读取和检查数据……", expanded=True) as status:
                 reg = read_uploads(reg_files); st.write(f"注册数据：{len(reg):,} 行")
                 orders = read_uploads(order_files); st.write(f"订单数据：{len(orders):,} 行")
-                google = read_uploads(google_files); st.write(f"Google消耗：{len(google):,} 行")
+                if web_google_api_ready:
+                    api_start, api_end = google_api_date_window(start, end)
+                    google = fetch_google_costs(st.secrets, "web", api_start, api_end)
+                    st.write(
+                        f"Google消耗（API）：{len(google):,} 行 · "
+                        f"{api_start:%Y-%m-%d} 至 {api_end:%Y-%m-%d}"
+                    )
+                else:
+                    google = read_uploads(google_files)
+                    st.write(f"Google消耗：{len(google):,} 行")
                 bing = read_uploads(bing_files); st.write(f"Bing消耗：{len(bing):,} 行")
                 # 直接把当前目标配置交给生成引擎。这样刚在网站保存的目标无需等待
                 # Streamlit 重新部署，也会立即写入本次生成的 Excel。
