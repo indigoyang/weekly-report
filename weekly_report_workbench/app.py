@@ -284,6 +284,14 @@ if active_port == "ugc":
     ugc_app_meta_files = st.session_state.get("shared_app_meta_files", [])
     ugc_app_asa_files = st.session_state.get("shared_app_asa_files", [])
     ugc_google_api_ready = google_ads_configured(st.secrets)
+    ugc_web_google_use_api = (
+        ugc_google_api_ready
+        and st.session_state.get("web_google_source", "API自动读取") == "API自动读取"
+    )
+    ugc_app_google_use_api = (
+        ugc_google_api_ready
+        and st.session_state.get("app_google_source", "API自动读取") == "API自动读取"
+    )
     ugc_web_manual = (
         st.session_state.get("web_manual_saved")
         or st.session_state.get("web_manual_current")
@@ -360,12 +368,12 @@ if active_port == "ugc":
                     st.rerun()
             st.markdown("**复用APP投放页消耗数据**")
             app_cost_source_rows = pd.DataFrame([
-                {"数据": "APP Google消耗", "状态": "API已连接" if ugc_google_api_ready else ("已就绪" if ugc_app_google_files else "未上传")},
+                {"数据": "APP Google消耗", "状态": "API自动读取" if ugc_app_google_use_api else ("备用文件已就绪" if ugc_app_google_files else "未上传")},
                 {"数据": "APP Meta消耗", "状态": "已就绪" if ugc_app_meta_files else "未上传"},
                 {"数据": "APP ASA消耗", "状态": "已就绪" if ugc_app_asa_files else "未上传"},
             ])
             st.dataframe(app_cost_source_rows, hide_index=True, use_container_width=True)
-            if not all((ugc_google_api_ready or ugc_app_google_files, ugc_app_meta_files, ugc_app_asa_files)):
+            if not all((ugc_app_google_use_api or ugc_app_google_files, ugc_app_meta_files, ugc_app_asa_files)):
                 st.info("请先进入左侧“App 周报”，上传Meta和ASA消耗；Google配置API后会自动读取。")
         with st.container(border=True, key="ugc_web_source_box"):
             st.markdown(
@@ -376,7 +384,7 @@ if active_port == "ugc":
             source_rows = pd.DataFrame([
                 {"数据": "Web注册数据", "状态": "已就绪" if ugc_reg_files else "未上传"},
                 {"数据": "Web订单数据", "状态": "已就绪" if ugc_order_files else "未上传"},
-                {"数据": "Google消耗", "状态": "API已连接" if ugc_google_api_ready else ("已就绪" if ugc_google_files else "未上传")},
+                {"数据": "Google消耗", "状态": "API自动读取" if ugc_web_google_use_api else ("备用文件已就绪" if ugc_google_files else "未上传")},
                 {"数据": "Bing消耗", "状态": "已就绪" if ugc_bing_files else "未上传"},
                 {
                     "数据": "UGC专项费用",
@@ -384,7 +392,7 @@ if active_port == "ugc":
                 },
             ])
             st.dataframe(source_rows, hide_index=True, use_container_width=True)
-            if not all((ugc_reg_files, ugc_order_files, ugc_google_api_ready or ugc_google_files, ugc_bing_files)):
+            if not all((ugc_reg_files, ugc_order_files, ugc_web_google_use_api or ugc_google_files, ugc_bing_files)):
                 st.info(
                     "请先进入左侧“Web 周报”，上传注册、订单、Google和Bing数据，"
                     "并填写UGC专项费用。上传后返回本页即可直接生成。"
@@ -397,16 +405,16 @@ if active_port == "ugc":
         st.markdown('</div>', unsafe_allow_html=True)
         ugc_ready = bool(
             ugc_reg_files and ugc_order_files
-            and (ugc_google_api_ready or ugc_google_files) and ugc_bing_files
+            and (ugc_web_google_use_api or ugc_google_files) and ugc_bing_files
             and ugc_app_reg_files and ugc_app_order_files
-            and (ugc_google_api_ready or ugc_app_google_files) and ugc_app_meta_files and ugc_app_asa_files
+            and (ugc_app_google_use_api or ugc_app_google_files) and ugc_app_meta_files and ugc_app_asa_files
             and ugc_start <= ugc_end
         )
-        if not all((ugc_reg_files, ugc_order_files, ugc_google_api_ready or ugc_google_files, ugc_bing_files)):
+        if not all((ugc_reg_files, ugc_order_files, ugc_web_google_use_api or ugc_google_files, ugc_bing_files)):
             ugc_button_label = "请先到Web页面上传注册、订单和Bing数据"
         elif not ugc_app_reg_files or not ugc_app_order_files:
             ugc_button_label = "请上传APP注册和订单数据"
-        elif not all((ugc_google_api_ready or ugc_app_google_files, ugc_app_meta_files, ugc_app_asa_files)):
+        elif not all((ugc_app_google_use_api or ugc_app_google_files, ugc_app_meta_files, ugc_app_asa_files)):
             ugc_button_label = "请先到App页面上传Meta和ASA消耗"
         else:
             ugc_button_label = "✦ 生成UGC数据监控表"
@@ -421,12 +429,12 @@ if active_port == "ugc":
         try:
             with ugc_main:
                 with st.status("正在按查询口径生成UGC数据监控表……", expanded=True) as status:
+                    api_start, api_end = google_api_date_window(ugc_start, ugc_end)
                     ugc_reg = read_uploads(ugc_reg_files)
                     st.write(f"Web注册数据：{len(ugc_reg):,} 行")
                     ugc_orders = read_uploads(ugc_order_files)
                     st.write(f"Web订单数据：{len(ugc_orders):,} 行")
-                    if ugc_google_api_ready:
-                        api_start, api_end = google_api_date_window(ugc_start, ugc_end)
+                    if ugc_web_google_use_api:
                         ugc_google = fetch_google_costs(st.secrets, "web", api_start, api_end)
                         st.write(f"Google消耗（API）：{len(ugc_google):,} 行")
                     else:
@@ -438,7 +446,7 @@ if active_port == "ugc":
                     st.write(f"APP注册数据：{len(ugc_app_reg):,} 行")
                     ugc_app_orders = read_uploads(ugc_app_order_files)
                     st.write(f"APP订单数据：{len(ugc_app_orders):,} 行")
-                    if ugc_google_api_ready:
+                    if ugc_app_google_use_api:
                         ugc_app_google = fetch_google_costs(st.secrets, "app", api_start, api_end)
                         st.write(f"APP Google消耗（API）：{len(ugc_app_google):,} 行")
                     else:
@@ -513,8 +521,18 @@ if active_port == "app":
             app_u1, app_u2 = st.columns(2)
             with app_u1:
                 app_google_api_ready = google_ads_configured(st.secrets)
-                if app_google_api_ready:
-                    app_google_files = []
+                app_google_source = (
+                    st.radio(
+                        "Google数据来源",
+                        ["API自动读取", "上传文件备用"],
+                        horizontal=True,
+                        key="app_google_source",
+                    )
+                    if app_google_api_ready else "上传文件备用"
+                )
+                app_google_use_api = app_google_api_ready and app_google_source == "API自动读取"
+                if app_google_use_api:
+                    app_google_files = st.session_state.get("shared_app_google_files", [])
                     st.markdown(
                         "**Google消耗**  \nGoogle Ads API · YM-AiPPT-APP-0508"
                         '<div class="file-status ok">✓ 已连接 · 按报告周期自动读取</div>',
@@ -608,7 +626,7 @@ if active_port == "app":
             app_uploaded_count = sum(
                 bool(value)
                 for value in (
-                    app_google_api_ready or app_google_files,
+                    app_google_use_api or app_google_files,
                     app_meta_files, app_asa_files, app_appsflyer_files,
                 )
             )
@@ -718,7 +736,7 @@ if active_port == "app":
         app_tasks = (
             ("报告周期", True),
             ("Web订单数据", bool(shared_order_files)),
-            ("Google消耗", bool(app_google_api_ready or app_google_files)),
+            ("Google消耗", bool(app_google_use_api or app_google_files)),
             ("Meta消耗", bool(app_meta_files)),
             ("ASA消耗", bool(app_asa_files)),
             ("AppsFlyer营收", bool(app_appsflyer_files)),
@@ -743,12 +761,12 @@ if active_port == "app":
             unsafe_allow_html=True,
         )
         app_ready = all((
-            shared_order_files, app_google_api_ready or app_google_files, app_meta_files,
+            shared_order_files, app_google_use_api or app_google_files, app_meta_files,
             app_asa_files, app_appsflyer_files,
         )) and app_start <= app_end
         if not shared_order_files:
             app_button_label = "请先到Web页面上传订单数据"
-        elif not all((app_google_api_ready or app_google_files, app_meta_files, app_asa_files)):
+        elif not all((app_google_use_api or app_google_files, app_meta_files, app_asa_files)):
             app_button_label = "请先上传Google、Meta和ASA消耗"
         elif not app_appsflyer_files:
             app_button_label = "请上传AppsFlyer营收"
@@ -768,7 +786,7 @@ if active_port == "app":
         try:
             with app_main:
                 with st.status("正在读取APP消耗并生成表格……", expanded=True) as status:
-                    if app_google_api_ready:
+                    if app_google_use_api:
                         api_start, api_end = google_api_date_window(app_start, app_end)
                         app_google = fetch_google_costs(st.secrets, "app", api_start, api_end)
                         st.write(
@@ -900,8 +918,18 @@ with main_col:
                 persist_workspace()
                 st.rerun()
             web_google_api_ready = google_ads_configured(st.secrets)
-            if web_google_api_ready:
-                google_files = []
+            web_google_source = (
+                st.radio(
+                    "Google数据来源",
+                    ["API自动读取", "上传文件备用"],
+                    horizontal=True,
+                    key="web_google_source",
+                )
+                if web_google_api_ready else "上传文件备用"
+            )
+            web_google_use_api = web_google_api_ready and web_google_source == "API自动读取"
+            if web_google_use_api:
+                google_files = st.session_state.get("shared_web_google_files", [])
                 st.markdown(
                     "**Google消耗**  \nGoogle Ads API · YM-AIppt-0124"
                     '<div class="file-status ok">✓ 已连接 · 按报告周期自动读取</div>',
@@ -962,7 +990,7 @@ with main_col:
                 persist_workspace()
                 st.rerun()
         uploaded_count = sum(bool(x) for x in [
-            reg_files, order_files, web_google_api_ready or google_files, bing_files
+            reg_files, order_files, web_google_use_api or google_files, bing_files
         ])
         upload_header.markdown(f'<div class="upload-head"><div><h2>上传源数据</h2><p>上传4类数据，系统将自动完成格式检查和数据预处理</p></div><div class="upload-count">{uploaded_count} / 4 已完成</div></div>', unsafe_allow_html=True)
 
@@ -1313,11 +1341,11 @@ with side_col:
     st.markdown('</div>', unsafe_allow_html=True)
 
     completed = 1 + uploaded_count; readiness = int(completed / 5 * 100)
-    task_rows = [("报告周期",True),("注册数据",bool(reg_files)),("订单数据",bool(order_files)),("Google消耗",bool(web_google_api_ready or google_files)),("Bing消耗",bool(bing_files))]
+    task_rows = [("报告周期",True),("注册数据",bool(reg_files)),("订单数据",bool(order_files)),("Google消耗",bool(web_google_use_api or google_files)),("Bing消耗",bool(bing_files))]
     tasks_html = "".join(f'<div class="task"><b>{"✓" if done else "○"} {name}</b><span class="{"done" if done else ""}">{"已完成" if done else "待上传"}</span></div>' for name,done in task_rows)
     st.markdown(f'<div class="panel"><div class="panel-title">报告准备度<span>{readiness}%</span></div><div class="mini-metrics"><div class="mini-metric"><strong>{readiness}%</strong><small>当前进度</small></div><div class="mini-metric"><strong>{completed} / 5</strong><small>已完成项目</small></div></div><div class="progress-track"><i style="width:{readiness}%"></i></div><div style="height:10px"></div>{tasks_html}</div>', unsafe_allow_html=True)
     st.markdown('<div class="panel"><div class="panel-title">自动化流程<span>1–3分钟</span></div><div class="timeline"><div class="event"><b>数据文件检查</b><span>上传后自动校验必要字段</span></div><div class="event"><b>字段自动识别</b><span>兼容Google与Bing中文字段</span></div><div class="event"><b>报告生成</b><span>输出全渠道 / SEM / SEM分地区 / 自然来源 / 会员类型</span></div></div></div>', unsafe_allow_html=True)
-    ready = all([reg_files, order_files, web_google_api_ready or google_files, bing_files]) and start <= end
+    ready = all([reg_files, order_files, web_google_use_api or google_files, bing_files]) and start <= end
     generate_clicked = st.button(
         "✦ 开始生成报告" if ready else "请先上传全部必要数据",
         type="primary", disabled=not ready, use_container_width=True,
@@ -1333,7 +1361,7 @@ if generate_clicked:
             with st.status("正在读取和检查数据……", expanded=True) as status:
                 reg = read_uploads(reg_files); st.write(f"注册数据：{len(reg):,} 行")
                 orders = read_uploads(order_files); st.write(f"订单数据：{len(orders):,} 行")
-                if web_google_api_ready:
+                if web_google_use_api:
                     api_start, api_end = google_api_date_window(start, end)
                     google = fetch_google_costs(st.secrets, "web", api_start, api_end)
                     st.write(
