@@ -373,14 +373,6 @@ if active_port == "ugc":
                     st.session_state.pop("shared_ugc_app_order_files", None)
                     persist_workspace()
                     st.rerun()
-            st.markdown("**复用APP投放页消耗数据**")
-            app_cost_source_rows = pd.DataFrame([
-                {"数据": "APP Google消耗", "状态": "API自动读取" if ugc_app_google_use_api else ("备用文件已就绪" if ugc_app_google_files else "未上传")},
-                {"数据": "APP ASA消耗", "状态": "已就绪" if ugc_app_asa_files else "未上传"},
-            ])
-            st.dataframe(app_cost_source_rows, hide_index=True, use_container_width=True)
-            if not all((ugc_app_google_use_api or ugc_app_google_files, ugc_app_asa_files)):
-                st.info("请先进入左侧“App 周报”，上传ASA消耗；Google配置API后会自动读取。")
         with st.container(border=True, key="ugc_web_source_box"):
             st.markdown(
                 '<div class="upload-head"><div><h2>复用Web源数据</h2>'
@@ -403,6 +395,14 @@ if active_port == "ugc":
                     "请先进入左侧“Web 周报”，上传注册、订单、Google和Bing数据，"
                     "并填写UGC专项费用。上传后返回本页即可直接生成。"
                 )
+            st.markdown("**复用APP投放页消耗数据**")
+            app_cost_source_rows = pd.DataFrame([
+                {"数据": "APP Google消耗", "状态": "API自动读取" if ugc_app_google_use_api else ("备用文件已就绪" if ugc_app_google_files else "未上传")},
+                {"数据": "APP ASA消耗", "状态": "已就绪" if ugc_app_asa_files else "未上传"},
+            ])
+            st.dataframe(app_cost_source_rows, hide_index=True, use_container_width=True)
+            if not all((ugc_app_google_use_api or ugc_app_google_files, ugc_app_asa_files)):
+                st.info("请先进入左侧“App 周报”，上传ASA消耗；Google配置API后会自动读取。")
     with ugc_side:
         st.markdown('<div class="panel"><div class="panel-title">UGC报告周期<span>自动保存</span></div>', unsafe_allow_html=True)
         ugc_start = st.date_input("开始日期", ugc_default_start, key="ugc_report_start")
