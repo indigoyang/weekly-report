@@ -32,7 +32,7 @@ st.set_page_config(page_title="数据自动化", page_icon="A", layout="wide", i
 
 # 报告结构升级时清理当前浏览器会话里旧版本生成的结果。
 # 否则Streamlit热更新后，页面可能继续显示更新前缓存的4份报告。
-REPORT_SCHEMA_VERSION = "2026-11-18-total-report-fixed-cost-v19"
+REPORT_SCHEMA_VERSION = "2026-11-20-app-meta-retired-v20"
 if st.session_state.get("report_schema_version") != REPORT_SCHEMA_VERSION:
     st.session_state.pop("reports", None)
     st.session_state.pop("warnings", None)
@@ -116,6 +116,7 @@ html{scroll-behavior:smooth}.stApp{background:var(--paper);color:var(--ink);font
 [data-testid="stVerticalBlockBorderWrapper"]{border:1px solid #111!important;border-radius:0!important;padding:22px!important;background:#fff!important;box-shadow:none!important;margin-bottom:20px}[data-testid="stFileUploader"]{background:#fff;border:1px solid #111;border-radius:0;padding:13px 14px 7px;min-height:135px;transition:.18s}[data-testid="stFileUploader"]:hover{background:#e3f85a12}[data-testid="stFileUploader"] label{color:#111;font-weight:700;font-size:12px}[data-testid="stFileUploaderDropzone"]{min-height:64px;border:0;background:transparent;border-radius:0;padding:8px 0}[data-testid="stFileUploaderDropzone"] button{color:#111!important;background:var(--lime)!important;border:1px solid #111!important;border-radius:50%!important;width:35px!important;height:35px!important;min-width:35px!important;padding:0!important;font-size:0!important;box-shadow:none!important}[data-testid="stFileUploaderDropzone"] button:after{content:'＋';font-size:20px;color:#111;position:absolute;inset:0;display:grid;place-items:center}[data-testid="stFileUploaderDropzone"] small{font-size:9px;color:#9ca3af}
 .file-status{margin:-6px 0 14px;padding:7px 9px;font-size:9px;letter-spacing:.4px;color:#9ca3af;background:#f7f7f5;border:1px solid #1111}.file-status.ok{color:#111;background:var(--success);border-color:#111}.panel{background:#fff;border:1px solid #111;padding:18px;margin-bottom:18px;box-shadow:none}.panel-title{display:flex;justify-content:space-between;align-items:center;font-size:13px;font-weight:700;padding-bottom:10px;border-bottom:1px solid #1112;margin-bottom:14px}.panel-title span{font-size:9px;font-weight:500;color:#9ca3af}.mini-metrics{display:flex;align-items:end;gap:12px;margin-bottom:14px}.mini-metric{border:0;background:transparent;padding:0}.mini-metric:first-child strong{font-family:'Noto Serif SC',serif;font-size:34px;font-weight:900}.mini-metric strong{display:block;font-size:15px}.mini-metric small{color:#9ca3af;font-size:9px}.progress-track{height:8px;background:#e5e7eb;overflow:hidden}.progress-track i{display:block;height:100%;background:var(--lime);border-right:1px solid #111}.task{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #1111;font-size:10px}.task:last-child{border:0}.task span{color:#9ca3af}.task .done{color:#111;background:var(--lime);border:1px solid #111;padding:1px 5px}
 .cost-card-head{display:flex;align-items:center;justify-content:space-between;margin:0 0 17px}.cost-card-head h3{font-family:'Noto Serif SC','Songti SC','SimSun',serif;font-size:21px;font-weight:700;margin:0;color:#111;letter-spacing:0}.api-badge{display:inline-flex;align-items:center;gap:6px;border:1px solid #9cde69;border-radius:999px;padding:4px 11px;color:#4f9d24;background:#f8fff2;font-size:11px;font-weight:700}.api-badge:before{content:'';width:7px;height:7px;border-radius:50%;background:#64c832}.api-badge.off{border-color:#d1d5db;color:#8b9199;background:#fafafa}.api-badge.off:before{background:#a8adb5}.api-identity{display:flex;gap:13px;align-items:center;padding:11px 13px;margin-bottom:13px;border:1px solid #e5e7eb;border-radius:6px;background:#fafafa;font-size:12px;color:#303238}.api-identity span{color:#909399}.api-read-status{display:flex;align-items:center;gap:7px;margin:13px 2px 0;color:#8a8f96;font-size:11px;font-weight:600}.api-read-status:before{content:'✓';display:grid;place-items:center;width:13px;height:13px;border-radius:50%;background:#67c83b;color:#fff;font-size:9px}.st-key-web_google_cost_card,.st-key-web_bing_cost_card{border:1px solid #d9dce1!important;border-radius:8px!important;padding:24px!important;background:#fff!important}.st-key-web_google_cost_card [data-testid="stRadio"],.st-key-web_bing_cost_card [data-testid="stRadio"]{background:#f0f1f3;border-radius:7px;padding:4px;margin-bottom:4px}.st-key-web_google_cost_card [data-testid="stRadio"]>div,.st-key-web_bing_cost_card [data-testid="stRadio"]>div{display:grid!important;grid-template-columns:1fr 1fr;gap:3px}.st-key-web_google_cost_card [data-testid="stRadio"] label,.st-key-web_bing_cost_card [data-testid="stRadio"] label{justify-content:center;padding:10px 12px;border-radius:6px;margin:0!important;color:#666;font-weight:600}.st-key-web_google_cost_card [data-testid="stRadio"] label:has(input:checked),.st-key-web_bing_cost_card [data-testid="stRadio"] label:has(input:checked){background:#fff;color:#222;box-shadow:0 1px 4px #0001}.st-key-web_google_cost_card [data-testid="stRadio"] [data-testid="stMarkdownContainer"],.st-key-web_bing_cost_card [data-testid="stRadio"] [data-testid="stMarkdownContainer"]{font-size:12px}.st-key-web_google_cost_card [data-testid="stRadio"] [data-baseweb="radio"],.st-key-web_bing_cost_card [data-testid="stRadio"] [data-baseweb="radio"]{display:none}
+.st-key-app_google_cost_card{border:1px solid #d9dce1!important;border-radius:8px!important;padding:24px!important;background:#fff!important;box-shadow:none!important}.st-key-app_google_cost_card [data-testid="stRadio"]{background:#f0f1f3;border-radius:7px;padding:4px;margin-bottom:4px}.st-key-app_google_cost_card [data-testid="stRadio"]>div{display:grid!important;grid-template-columns:1fr 1fr;gap:3px}.st-key-app_google_cost_card [data-testid="stRadio"] label{justify-content:center;padding:10px 12px;border-radius:6px;margin:0!important;color:#666;font-weight:600}.st-key-app_google_cost_card [data-testid="stRadio"] label:has(input:checked){background:#fff;color:#222;box-shadow:0 1px 4px #0001}.st-key-app_google_cost_card [data-testid="stRadio"] [data-testid="stMarkdownContainer"]{font-size:12px}.st-key-app_google_cost_card [data-testid="stRadio"] [data-baseweb="radio"]{display:none}
 .timeline{border-left:1px solid #d1d5db;margin:5px 0 0 7px;padding-left:16px}.event{position:relative;margin:0 0 17px}.event:last-child{margin-bottom:0}.event:before{content:'';position:absolute;left:-21px;top:4px;width:8px;height:8px;border-radius:50%;background:#fff;border:1px solid #9ca3af}.event:first-child:before{background:var(--lime);border-color:#111}.event b{font-size:10px;display:block;margin-bottom:3px}.event span{font-size:9px;color:#9ca3af}
 [data-testid="stExpander"]{border:1px solid #111!important;border-radius:0!important;background:#fff;box-shadow:none}[data-testid="stExpander"] summary{font-family:'Noto Serif SC',serif;font-weight:700}.stNumberInput input,.stDateInput input{border-radius:0!important;background:#fafafa!important}.stButton>button,.stDownloadButton>button{border-radius:0;min-height:43px;font-size:11px;font-weight:700;border:1px solid #111}.stButton>button[kind="primary"],.stDownloadButton>button[kind="primary"]{background:var(--lime);color:#111;border-color:#111;box-shadow:3px 3px 0 #111}.stButton>button[kind="primary"]:hover,.stDownloadButton>button[kind="primary"]:hover{transform:translate(-1px,-1px);box-shadow:4px 4px 0 #111}.stButton>button[kind="primary"]:disabled{background:#e5e7eb;border-color:#c7c7c7;color:#9ca3af;box-shadow:none}
 .download-card{background:#fff;border:1px solid #111;padding:14px;margin:5px 0 8px}.download-card b{font-family:'Noto Serif SC',serif;font-size:12px}.download-card span{color:#9ca3af;font-size:9px}.section-label{font-family:'Noto Serif SC',serif;font-size:18px;font-weight:700;margin:28px 0 5px}.section-note{color:#6b7280;font-size:10px;margin-bottom:12px}.fixed-footer{height:52px;margin-top:28px;border-top:1px solid #1112;display:flex;align-items:center;justify-content:space-between}.fixed-footer span,.fixed-footer b{font-size:9px;color:#6b7280}footer{visibility:hidden}
@@ -283,7 +284,6 @@ if active_port == "ugc":
     ugc_google_files = st.session_state.get("shared_web_google_files", [])
     ugc_bing_files = st.session_state.get("shared_web_bing_files", [])
     ugc_app_google_files = st.session_state.get("shared_app_google_files", [])
-    ugc_app_meta_files = st.session_state.get("shared_app_meta_files", [])
     ugc_app_asa_files = st.session_state.get("shared_app_asa_files", [])
     ugc_google_api_ready = google_ads_configured(st.secrets)
     ugc_bing_api_ready = bing_ads_configured(st.secrets)
@@ -376,12 +376,11 @@ if active_port == "ugc":
             st.markdown("**复用APP投放页消耗数据**")
             app_cost_source_rows = pd.DataFrame([
                 {"数据": "APP Google消耗", "状态": "API自动读取" if ugc_app_google_use_api else ("备用文件已就绪" if ugc_app_google_files else "未上传")},
-                {"数据": "APP Meta消耗", "状态": "已就绪" if ugc_app_meta_files else "未上传"},
                 {"数据": "APP ASA消耗", "状态": "已就绪" if ugc_app_asa_files else "未上传"},
             ])
             st.dataframe(app_cost_source_rows, hide_index=True, use_container_width=True)
-            if not all((ugc_app_google_use_api or ugc_app_google_files, ugc_app_meta_files, ugc_app_asa_files)):
-                st.info("请先进入左侧“App 周报”，上传Meta和ASA消耗；Google配置API后会自动读取。")
+            if not all((ugc_app_google_use_api or ugc_app_google_files, ugc_app_asa_files)):
+                st.info("请先进入左侧“App 周报”，上传ASA消耗；Google配置API后会自动读取。")
         with st.container(border=True, key="ugc_web_source_box"):
             st.markdown(
                 '<div class="upload-head"><div><h2>复用Web源数据</h2>'
@@ -414,15 +413,15 @@ if active_port == "ugc":
             ugc_reg_files and ugc_order_files
             and (ugc_web_google_use_api or ugc_google_files) and (ugc_web_bing_use_api or ugc_bing_files)
             and ugc_app_reg_files and ugc_app_order_files
-            and (ugc_app_google_use_api or ugc_app_google_files) and ugc_app_meta_files and ugc_app_asa_files
+            and (ugc_app_google_use_api or ugc_app_google_files) and ugc_app_asa_files
             and ugc_start <= ugc_end
         )
         if not all((ugc_reg_files, ugc_order_files, ugc_web_google_use_api or ugc_google_files, ugc_web_bing_use_api or ugc_bing_files)):
             ugc_button_label = "请先到Web页面准备注册、订单和消耗数据"
         elif not ugc_app_reg_files or not ugc_app_order_files:
             ugc_button_label = "请上传APP注册和订单数据"
-        elif not all((ugc_app_google_use_api or ugc_app_google_files, ugc_app_meta_files, ugc_app_asa_files)):
-            ugc_button_label = "请先到App页面上传Meta和ASA消耗"
+        elif not all((ugc_app_google_use_api or ugc_app_google_files, ugc_app_asa_files)):
+            ugc_button_label = "请先到App页面准备Google和ASA消耗"
         else:
             ugc_button_label = "✦ 生成UGC数据监控表"
         ugc_generate = st.button(
@@ -463,8 +462,7 @@ if active_port == "ugc":
                     else:
                         ugc_app_google = read_app_uploads(ugc_app_google_files, "google")
                         st.write(f"APP Google消耗：{len(ugc_app_google):,} 行")
-                    ugc_app_meta = read_app_uploads(ugc_app_meta_files, "meta")
-                    st.write(f"APP Meta消耗：{len(ugc_app_meta):,} 行")
+                    ugc_app_meta = pd.DataFrame()
                     ugc_app_asa = read_app_uploads(ugc_app_asa_files, "asa")
                     st.write(f"APP ASA消耗：{len(ugc_app_asa):,} 行")
                     st.session_state["ugc_report"] = generate_ugc_report(
@@ -500,7 +498,7 @@ if active_port == "app":
         <header class="topbar">
           <div class="eyebrow">APP Report Workbench</div>
           <h1>APP数据自动化</h1>
-          <p>上传Google、Meta、ASA消耗和AppsFlyer营收，自动生成APP投放营收表</p>
+          <p>上传Google、ASA消耗和AppsFlyer营收，自动生成APP投放营收表</p>
           <div class="steps">
             <div class="step done"><b>✓</b>选择周期</div><div class="step-line"></div>
             <div class="step on"><b>02</b>上传数据</div><div class="step-line"></div>
@@ -531,68 +529,53 @@ if active_port == "app":
             app_upload_header = st.empty()
             app_u1, app_u2 = st.columns(2)
             with app_u1:
-                app_google_api_ready = google_ads_configured(st.secrets)
-                app_google_source = (
-                    st.radio(
-                        "Google数据来源",
-                        ["API自动读取", "上传文件备用"],
-                        horizontal=True,
-                        key="app_google_source",
-                    )
-                    if app_google_api_ready else "上传文件备用"
-                )
-                app_google_use_api = app_google_api_ready and app_google_source == "API自动读取"
-                if app_google_use_api:
-                    app_google_files = st.session_state.get("shared_app_google_files", [])
+                with st.container(border=True, key="app_google_cost_card"):
+                    app_google_api_ready = google_ads_configured(st.secrets)
+                    app_google_badge = "api-badge" if app_google_api_ready else "api-badge off"
+                    app_google_badge_text = "已连接" if app_google_api_ready else "未配置"
                     st.markdown(
-                        "**Google消耗**  \nGoogle Ads API · YM-AiPPT-APP-0508"
-                        '<div class="file-status ok">✓ 已连接 · 按报告周期自动读取</div>',
+                        f'<div class="cost-card-head"><h3>Google 消耗</h3>'
+                        f'<span class="{app_google_badge}">{app_google_badge_text}</span></div>'
+                        '<div class="api-identity"><span>Google Ads API</span><b>YM-AiPPT-APP-0508</b></div>',
                         unsafe_allow_html=True,
                     )
-                else:
-                    app_google_upload_version = st.session_state.get("app_google_upload_version", 0)
-                    app_google_files = st.file_uploader(
-                        "**Google消耗**  \nGoogle Ads 投放消耗",
-                        type=["xlsx", "xlsm", "csv"], accept_multiple_files=True,
-                        key=f"app_google_files_{app_google_upload_version}",
+                    app_google_source = (
+                        st.radio(
+                            "Google数据来源",
+                            ["API自动读取", "上传文件备用"],
+                            format_func=lambda value: "API 自动读取" if value == "API自动读取" else "手动上传文件",
+                            horizontal=True,
+                            key="app_google_source",
+                            label_visibility="collapsed",
+                        )
+                        if app_google_api_ready else "上传文件备用"
                     )
-                    if app_google_files:
-                        st.session_state["shared_app_google_files"] = list(app_google_files)
-                        persist_workspace()
-                    else:
+                    app_google_use_api = app_google_api_ready and app_google_source == "API自动读取"
+                    if app_google_use_api:
                         app_google_files = st.session_state.get("shared_app_google_files", [])
-                    st.markdown(app_upload_status(app_google_files), unsafe_allow_html=True)
-                    if app_google_files and st.button(
-                        "删除已上传的Google文件", key="clear_app_google", use_container_width=True
-                    ):
-                        st.session_state["app_google_upload_version"] = app_google_upload_version + 1
-                        invalidate_app_outputs()
-                        st.session_state.pop("shared_app_google_files", None)
-                        persist_workspace()
-                        st.rerun()
+                        st.markdown('<div class="api-read-status">按报告周期自动获取</div>', unsafe_allow_html=True)
+                    else:
+                        app_google_upload_version = st.session_state.get("app_google_upload_version", 0)
+                        app_google_files = st.file_uploader(
+                            "**Google消耗**  \nGoogle Ads 投放消耗",
+                            type=["xlsx", "xlsm", "csv"], accept_multiple_files=True,
+                            key=f"app_google_files_{app_google_upload_version}",
+                        )
+                        if app_google_files:
+                            st.session_state["shared_app_google_files"] = list(app_google_files)
+                            persist_workspace()
+                        else:
+                            app_google_files = st.session_state.get("shared_app_google_files", [])
+                        st.markdown(app_upload_status(app_google_files), unsafe_allow_html=True)
+                        if app_google_files and st.button(
+                            "删除已上传的Google文件", key="clear_app_google", use_container_width=True
+                        ):
+                            st.session_state["app_google_upload_version"] = app_google_upload_version + 1
+                            invalidate_app_outputs()
+                            st.session_state.pop("shared_app_google_files", None)
+                            persist_workspace()
+                            st.rerun()
             with app_u2:
-                app_meta_upload_version = st.session_state.get("app_meta_upload_version", 0)
-                app_meta_files = st.file_uploader(
-                    "**Meta消耗**  \nMeta Ads 投放消耗",
-                    type=["xlsx", "xlsm", "csv"], accept_multiple_files=True,
-                    key=f"app_meta_files_{app_meta_upload_version}",
-                )
-                if app_meta_files:
-                    st.session_state["shared_app_meta_files"] = list(app_meta_files)
-                    persist_workspace()
-                else:
-                    app_meta_files = st.session_state.get("shared_app_meta_files", [])
-                st.markdown(app_upload_status(app_meta_files), unsafe_allow_html=True)
-                if app_meta_files and st.button(
-                    "删除已上传的Meta文件", key="clear_app_meta", use_container_width=True
-                ):
-                    st.session_state["app_meta_upload_version"] = app_meta_upload_version + 1
-                    invalidate_app_outputs()
-                    st.session_state.pop("shared_app_meta_files", None)
-                    persist_workspace()
-                    st.rerun()
-            app_u3, app_u4 = st.columns(2)
-            with app_u3:
                 app_asa_upload_version = st.session_state.get("app_asa_upload_version", 0)
                 app_asa_files = st.file_uploader(
                     "**ASA消耗**  \nASA 分地区分天消耗",
@@ -613,7 +596,8 @@ if active_port == "app":
                     st.session_state.pop("shared_app_asa_files", None)
                     persist_workspace()
                     st.rerun()
-            with app_u4:
+            app_u3, app_u4 = st.columns(2)
+            with app_u3:
                 app_appsflyer_upload_version = st.session_state.get("app_appsflyer_upload_version", 0)
                 app_appsflyer_files = st.file_uploader(
                     "**AppsFlyer营收**  \n分天、地区与媒体渠道营收",
@@ -634,18 +618,20 @@ if active_port == "app":
                     st.session_state.pop("shared_app_appsflyer_files", None)
                     persist_workspace()
                     st.rerun()
+            with app_u4:
+                pass
             app_uploaded_count = sum(
                 bool(value)
                 for value in (
                     app_google_use_api or app_google_files,
-                    app_meta_files, app_asa_files, app_appsflyer_files,
+                    app_asa_files, app_appsflyer_files,
                 )
             )
             shared_order_files = st.session_state.get("shared_order_files", [])
             app_upload_header.markdown(
                 f'<div class="upload-head"><div><h2>上传APP数据</h2>'
                 f'<p>消耗按平台汇总，收入按AppsFlyer媒体渠道与地区汇总</p></div>'
-                f'<div class="upload-count">{app_uploaded_count} / 4 已完成</div></div>',
+                f'<div class="upload-count">{app_uploaded_count} / 3 已完成</div></div>',
                 unsafe_allow_html=True,
             )
 
@@ -669,11 +655,9 @@ if active_port == "app":
             "老用户收入": 10000.0,
             "总成本": 7500.0,
             "Google—投放新用户 ROI（D7）": 1.2,
-            "Meta—投放新用户 ROI（D7）": 1.2,
             "ASA—新用户ROI": 1.2,
             "APP投放总收入（D7）": 4000.0,
             "Google收入（D7）": 2000.0,
-            "Meta收入（D7）": 2000.0,
             "ASA收入（D7）": 2000.0,
             "地区收入_台湾": 1000.0,
             "地区收入_韩国": 500.0,
@@ -743,12 +727,11 @@ if active_port == "app":
         st.markdown('</div>', unsafe_allow_html=True)
 
         app_completed = 1 + app_uploaded_count + int(bool(shared_order_files))
-        app_readiness = int(app_completed / 6 * 100)
+        app_readiness = int(app_completed / 5 * 100)
         app_tasks = (
             ("报告周期", True),
             ("Web订单数据", bool(shared_order_files)),
             ("Google消耗", bool(app_google_use_api or app_google_files)),
-            ("Meta消耗", bool(app_meta_files)),
             ("ASA消耗", bool(app_asa_files)),
             ("AppsFlyer营收", bool(app_appsflyer_files)),
         )
@@ -760,7 +743,7 @@ if active_port == "app":
         st.markdown(
             f'<div class="panel"><div class="panel-title">报告准备度<span>{app_readiness}%</span></div>'
             f'<div class="mini-metrics"><div class="mini-metric"><strong>{app_readiness}%</strong><small>当前进度</small></div>'
-            f'<div class="mini-metric"><strong>{app_completed} / 6</strong><small>已完成项目</small></div></div>'
+            f'<div class="mini-metric"><strong>{app_completed} / 5</strong><small>已完成项目</small></div></div>'
             f'<div class="progress-track"><i style="width:{app_readiness}%"></i></div><div style="height:10px"></div>'
             f'{app_tasks_html}</div>',
             unsafe_allow_html=True,
@@ -772,13 +755,13 @@ if active_port == "app":
             unsafe_allow_html=True,
         )
         app_ready = all((
-            shared_order_files, app_google_use_api or app_google_files, app_meta_files,
+            shared_order_files, app_google_use_api or app_google_files,
             app_asa_files, app_appsflyer_files,
         )) and app_start <= app_end
         if not shared_order_files:
             app_button_label = "请先到Web页面上传订单数据"
-        elif not all((app_google_use_api or app_google_files, app_meta_files, app_asa_files)):
-            app_button_label = "请先上传Google、Meta和ASA消耗"
+        elif not all((app_google_use_api or app_google_files, app_asa_files)):
+            app_button_label = "请先准备Google和ASA消耗"
         elif not app_appsflyer_files:
             app_button_label = "请上传AppsFlyer营收"
         else:
@@ -807,8 +790,7 @@ if active_port == "app":
                     else:
                         app_google = read_app_uploads(app_google_files, "google")
                         st.write(f"Google消耗：{len(app_google):,} 行")
-                    app_meta = read_app_uploads(app_meta_files, "meta")
-                    st.write(f"Meta消耗：{len(app_meta):,} 行")
+                    app_meta = pd.DataFrame()
                     app_asa = read_app_uploads(app_asa_files, "asa")
                     st.write(f"ASA消耗：{len(app_asa):,} 行")
                     app_appsflyer = read_app_uploads(app_appsflyer_files, "appsflyer")

@@ -209,7 +209,7 @@ def _web_sem_costs(web_reg, web_orders, google, bing, start, end):
 
 
 def _app_hkmt_costs(google, meta, asa, start, end):
-    """APP港澳台成本：SEM=Google+Meta，ASA=ASA。"""
+    """APP港澳台成本：Meta停投后，SEM=Google，ASA=ASA。"""
     google, meta, asa, warnings = prepare_app_costs(google, meta, asa)
     period_days = (end - start).days + 1
     periods = {
@@ -227,9 +227,8 @@ def _app_hkmt_costs(google, meta, asa, start, end):
     result = {}
     for label, (period_start, period_end) in periods.items():
         google_cost = float(google.loc[hkmt_mask(google, period_start, period_end), "cost"].sum())
-        meta_cost = float(meta.loc[hkmt_mask(meta, period_start, period_end), "cost"].sum())
         asa_cost = float(asa.loc[hkmt_mask(asa, period_start, period_end), "cost"].sum())
-        result[label] = {"SEM": google_cost + meta_cost, "ASA": asa_cost}
+        result[label] = {"SEM": google_cost, "ASA": asa_cost}
     return result, warnings
 
 
@@ -409,7 +408,7 @@ def generate_ugc_report(
     warnings = list(cost_warnings) + list(app_cost_warnings)
     warnings.append(
         "Web SEM成本取港澳台Google+Bing，Web KOL成本取UGC专项费用；"
-        "APP SEM成本取港澳台Google+Meta，APP ASA成本取港澳台ASA，"
+        "APP SEM成本取港澳台Google，APP ASA成本取港澳台ASA，"
         "APP自然来源成本与ROI保留为“/”。"
     )
     filename = f"UGC数据监控_{start:%Y%m%d}-{end:%Y%m%d}.xlsx"

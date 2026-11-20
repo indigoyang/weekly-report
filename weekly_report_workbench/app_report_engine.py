@@ -204,6 +204,9 @@ def prepare_app_costs(
     google: pd.DataFrame, meta: pd.DataFrame, asa: pd.DataFrame
 ) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, list[str]]:
     warnings: list[str] = []
+    # Meta已停投。保留空表参数只为兼容旧调用和历史工作区，不再要求上传Meta文件。
+    if meta is None or meta.empty:
+        meta = pd.DataFrame(columns=["date", "region", "cost"])
     google = _rename_first(
         google,
         {
@@ -440,7 +443,7 @@ def generate_app_report(
         if appsflyer["af_media"].eq("tiktokglobal_int").any():
             warnings.append(
                 "TikTok营收已计入“APP投放总收入（D7）”；现有模板没有TikTok单独行，"
-                "因此总收入会大于Google、Meta与ASA三行之和。"
+                "因此总收入会大于Google与ASA两行之和。"
             )
     values: dict[str, dict[str, float]] = {}
     cost_summary: dict[str, dict[str, float]] = {}
@@ -449,7 +452,6 @@ def generate_app_report(
 
     for period, (period_start, period_end) in ranges.items():
         google_cost = _sum_cost(google, period_start, period_end)
-        meta_cost = _sum_cost(meta, period_start, period_end)
         asa_cost = _sum_cost(asa, period_start, period_end)
         google_revenue = _sum_appsflyer_revenue(
             appsflyer, period_start, period_end, media_sources={"googleadwords_int"}
@@ -464,21 +466,19 @@ def generate_app_report(
             appsflyer, period_start, period_end, media_sources={"tiktokglobal_int"}
         )
         total_revenue = google_revenue + meta_revenue + asa_revenue + tiktok_revenue
-        total_cost = google_cost + meta_cost + asa_cost
+        # Meta已停投，不再纳入APP成本；Facebook Ads历史营收仍保留在投放总收入中。
+        total_cost = google_cost + asa_cost
 
         values[period] = {
             "APP—投放新用户ROI（D7）": _safe_div(total_revenue, total_cost),
             "Google—投放新用户 ROI（D7）": _safe_div(google_revenue, google_cost),
-            "Meta—投放新用户 ROI（D7）": _safe_div(meta_revenue, meta_cost),
             "ASA—新用户ROI": _safe_div(asa_revenue, asa_cost),
             "APP投放总收入（D7）": total_revenue,
             "Google收入（D7）": google_revenue,
-            "Meta收入（D7）": meta_revenue,
             "ASA收入（D7）": asa_revenue,
         }
         cost_summary[period] = {
             "Google消耗": google_cost,
-            "Meta消耗": meta_cost,
             "ASA消耗": asa_cost,
             "总消耗": total_cost,
         }
@@ -497,7 +497,6 @@ def generate_app_report(
             values[period][f"地区收入_{region}"] = revenue
             region_cost = (
                 _sum_cost(google, period_start, period_end, region)
-                + _sum_cost(meta, period_start, period_end, region)
                 + _sum_cost(asa, period_start, period_end, region)
             )
             values[period][f"地区ROI_{region}"] = _safe_div(revenue, region_cost)
@@ -521,11 +520,11 @@ def generate_app_report(
             "APP—应用商店（ASA）新用户ROI（D7）": values[period]["ASA—新用户ROI"],
             "APP—其他地区新老综合ROI": _safe_div(
                 _sum_order_revenue(orders, period_start, period_end, roi_group="其他地区"),
-                sum(_sum_cost_group(frame, period_start, period_end, "其他地区") for frame in (google, meta, asa)),
+                sum(_sum_cost_group(frame, period_start, period_end, "其他地区") for frame in (google, asa)),
             ),
             "APP—英语地区新老综合ROI": _safe_div(
                 _sum_order_revenue(orders, period_start, period_end, roi_group="英语地区"),
-                sum(_sum_cost_group(frame, period_start, period_end, "英语地区") for frame in (google, meta, asa)),
+                sum(_sum_cost_group(frame, period_start, period_end, "英语地区") for frame in (google, asa)),
             ),
             "总收入": app_total_revenue,
             "APP投放收入": total_revenue,
@@ -556,11 +555,9 @@ def generate_app_report(
     row_keys = {
         3: "APP—投放新用户ROI（D7）",
         4: "Google—投放新用户 ROI（D7）",
-        5: "Meta—投放新用户 ROI（D7）",
         6: "ASA—新用户ROI",
         7: "APP投放总收入（D7）",
         8: "Google收入（D7）",
-        9: "Meta收入（D7）",
         10: "ASA收入（D7）",
         12: "地区收入_台湾",
         13: "地区收入_韩国",
@@ -592,6 +589,10 @@ def generate_app_report(
             sheet.cell(row, column).number_format = '$#,##0'
         for column in (4, 7):
             sheet.cell(row, column).number_format = "0%"
+
+    # Meta停投后不再输出专属ROI和收入指标。倒序删除，避免前一行删除导致行号漂移。
+    sheet.delete_rows(9, 1)
+    sheet.delete_rows(5, 1)
 
     # 模板H列是内部统计口径说明，不属于最终对外报表。
     if sheet.max_column >= 8:
@@ -649,7 +650,7 @@ def generate_app_report(
         )
         country_cost = sum(
             _sum_country_cost(frame, mtd_start, mtd_end, country)
-            for frame in (google, meta, asa)
+            for frame in (google, asa)
         )
         country_sheet.cell(row, 2, all_revenue)
         country_sheet.cell(row, 3, new_revenue)
@@ -659,7 +660,7 @@ def generate_app_report(
 
     total_all_revenue = _sum_order_revenue(orders, mtd_start, mtd_end)
     total_new_revenue = _sum_order_revenue(orders, mtd_start, mtd_end, new_only=True)
-    total_mtd_cost = sum(_sum_cost(frame, mtd_start, mtd_end) for frame in (google, meta, asa))
+    total_mtd_cost = sum(_sum_cost(frame, mtd_start, mtd_end) for frame in (google, asa))
     for column, value in enumerate(
         (
             total_all_revenue,
