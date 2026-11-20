@@ -8,7 +8,7 @@ import streamlit as st
 import pandas as pd
 
 from report_engine import read_uploads
-from app_report_engine import generate_app_report, read_app_uploads
+from app_report_engine import generate_app_report, read_app_uploads, appsflyer_natural_metrics
 from total_report_engine import generate_total_report
 from ugc_report_engine import generate_ugc_report
 from v3_report_engine import generate_v3_reports
@@ -872,6 +872,7 @@ today = date.today()
 default_end = today - timedelta(days=1)
 default_start = default_end - timedelta(days=6)
 target_month_end = st.session_state.get("report_end", default_end)
+web_appsflyer_files = st.session_state.get("shared_app_appsflyer_files", [])
 
 main_col, side_col = st.columns([3.15, 1], gap="large")
 
@@ -1014,9 +1015,10 @@ with main_col:
                         persist_workspace()
                         st.rerun()
         uploaded_count = sum(bool(x) for x in [
-            reg_files, order_files, web_google_use_api or google_files, web_bing_use_api or bing_files
+            reg_files, order_files, web_google_use_api or google_files,
+            web_bing_use_api or bing_files, web_appsflyer_files,
         ])
-        upload_header.markdown(f'<div class="upload-head"><div><h2>上传源数据</h2><p>上传4类数据，系统将自动完成格式检查和数据预处理</p></div><div class="upload-count">{uploaded_count} / 4 已完成</div></div>', unsafe_allow_html=True)
+        upload_header.markdown(f'<div class="upload-head"><div><h2>上传源数据</h2><p>准备5类数据，系统将自动完成格式检查和数据预处理</p></div><div class="upload-count">{uploaded_count} / 5 已完成</div></div>', unsafe_allow_html=True)
 
     st.markdown('<div id="manual-data"></div><div class="section-label">02 补充手动数据</div><div class="section-note">对应全渠道周报中的成本、流量和退款；没有数据时可保持为0。</div>', unsafe_allow_html=True)
     with st.expander("展开填写成本、流量和退款", expanded=False):
@@ -1046,15 +1048,18 @@ with main_col:
 
     with st.expander("自然来源周报补充数据", expanded=False):
         st.caption(
-            "APP数据、达人数据、UGC费用与品牌词搜索量暂时没有数据库来源，按本周、上周和MTD手动填写。"
+            "APP自然量安装数和收入由App页上传的AppsFlyer表自动计算；"
+            "达人数据、UGC费用与品牌词搜索量按本周、上周和MTD手动填写。"
             "达人合作费 + UGC专项费用 + 投流费会作为KOL表成本总计，只加入全渠道ROI分母，不计入表内展示的总成本。"
         )
+        if web_appsflyer_files:
+            st.success("AppsFlyer数据已就绪：APP自然量注册数和收入将自动计算。")
+        else:
+            st.warning("请先到“App 周报”上传AppsFlyer营收表；该表用于自动计算APP自然量注册数和收入。")
         natural_groups = [
             ("natural_creators", "已发布达人数量"),
             ("natural_exposure", "曝光量"),
             ("natural_brand_search", "WEB品牌词搜索量"),
-            ("natural_app_reg", "APP自然量注册数"),
-            ("natural_app_revenue", "APP自然量新用户收入"),
             ("natural_creator_cost", "达人合作费"),
             ("natural_ugc_cost", "UGC专项费用"),
             ("natural_boost_cost", "投流费"),
@@ -1364,12 +1369,12 @@ with side_col:
     st.caption(f"当前周期 · {start:%Y.%m.%d} – {end:%Y.%m.%d}")
     st.markdown('</div>', unsafe_allow_html=True)
 
-    completed = 1 + uploaded_count; readiness = int(completed / 5 * 100)
-    task_rows = [("报告周期",True),("注册数据",bool(reg_files)),("订单数据",bool(order_files)),("Google消耗",bool(web_google_use_api or google_files)),("Bing消耗",bool(web_bing_use_api or bing_files))]
+    completed = 1 + uploaded_count; readiness = int(completed / 6 * 100)
+    task_rows = [("报告周期",True),("注册数据",bool(reg_files)),("订单数据",bool(order_files)),("Google消耗",bool(web_google_use_api or google_files)),("Bing消耗",bool(web_bing_use_api or bing_files)),("AppsFlyer数据",bool(web_appsflyer_files))]
     tasks_html = "".join(f'<div class="task"><b>{"✓" if done else "○"} {name}</b><span class="{"done" if done else ""}">{"已完成" if done else "待上传"}</span></div>' for name,done in task_rows)
-    st.markdown(f'<div class="panel"><div class="panel-title">报告准备度<span>{readiness}%</span></div><div class="mini-metrics"><div class="mini-metric"><strong>{readiness}%</strong><small>当前进度</small></div><div class="mini-metric"><strong>{completed} / 5</strong><small>已完成项目</small></div></div><div class="progress-track"><i style="width:{readiness}%"></i></div><div style="height:10px"></div>{tasks_html}</div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="panel"><div class="panel-title">报告准备度<span>{readiness}%</span></div><div class="mini-metrics"><div class="mini-metric"><strong>{readiness}%</strong><small>当前进度</small></div><div class="mini-metric"><strong>{completed} / 6</strong><small>已完成项目</small></div></div><div class="progress-track"><i style="width:{readiness}%"></i></div><div style="height:10px"></div>{tasks_html}</div>', unsafe_allow_html=True)
     st.markdown('<div class="panel"><div class="panel-title">自动化流程<span>1–3分钟</span></div><div class="timeline"><div class="event"><b>数据文件检查</b><span>上传后自动校验必要字段</span></div><div class="event"><b>字段自动识别</b><span>兼容Google与Bing中文字段</span></div><div class="event"><b>报告生成</b><span>输出全渠道 / SEM / SEM分地区 / 自然来源 / 会员类型</span></div></div></div>', unsafe_allow_html=True)
-    ready = all([reg_files, order_files, web_google_use_api or google_files, web_bing_use_api or bing_files]) and start <= end
+    ready = all([reg_files, order_files, web_google_use_api or google_files, web_bing_use_api or bing_files, web_appsflyer_files]) and start <= end
     generate_clicked = st.button(
         "✦ 开始生成报告" if ready else "请先上传全部必要数据",
         type="primary", disabled=not ready, use_container_width=True,
@@ -1405,12 +1410,19 @@ if generate_clicked:
                 else:
                     bing = read_uploads(bing_files)
                     st.write(f"Bing消耗：{len(bing):,} 行")
+                web_appsflyer = read_app_uploads(web_appsflyer_files, "appsflyer")
+                natural_inputs, natural_warnings = appsflyer_natural_metrics(
+                    web_appsflyer, start, end
+                )
+                input_values.update(natural_inputs)
+                st.write(f"AppsFlyer自然量数据：{len(web_appsflyer):,} 行")
                 # 直接把当前目标配置交给生成引擎。这样刚在网站保存的目标无需等待
                 # Streamlit 重新部署，也会立即写入本次生成的 Excel。
                 reports, warnings, web_summary = generate_v3_reports(
                     reg, orders, google, bing, None, start, end, input_values,
                     targets=load_targets(), rules=load_rules(),
                 )
+                warnings = natural_warnings + warnings
                 if len(reports) != 1:
                     raise RuntimeError(f"报告生成数量异常：应生成1份，实际生成{len(reports)}份，请刷新页面后重试。")
                 st.session_state["reports"] = reports; st.session_state["warnings"] = warnings

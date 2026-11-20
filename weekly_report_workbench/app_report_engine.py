@@ -342,6 +342,39 @@ def prepare_appsflyer_revenue(frame: pd.DataFrame) -> tuple[pd.DataFrame, list[s
     return result.loc[result["af_date"].notna()].copy(), warnings
 
 
+def appsflyer_natural_metrics(
+    frame: pd.DataFrame, start: date, end: date
+) -> tuple[dict[str, float], list[str]]:
+    """从AppsFlyer导出计算Web自然来源表所需的APP自然安装量和收入。"""
+    result, warnings = prepare_appsflyer_revenue(frame)
+    installs_field = "Installs appsflyer"
+    if installs_field not in result.columns:
+        raise ValueError(f"AppsFlyer营收数据缺少字段：{installs_field}")
+    result["af_installs"] = pd.to_numeric(
+        result[installs_field].astype(str).str.replace(",", "", regex=False),
+        errors="coerce",
+    ).fillna(0.0)
+    natural = result[result["af_media"].isin(APPSFLYER_NATURAL_CHANNELS)].copy()
+    ranges = _period_ranges(start, end)
+    required_start = min(period_start for period_start, _ in ranges.values())
+    required_end = max(period_end for _, period_end in ranges.values())
+    source_start = result["af_date"].min().date()
+    source_end = result["af_date"].max().date()
+    if source_start > required_start or source_end < required_end:
+        warnings.append(
+            "AppsFlyer文件日期仅覆盖"
+            f" {source_start:%Y-%m-%d} 至 {source_end:%Y-%m-%d}；"
+            f"计算本周、上周和MTD需要覆盖 {required_start:%Y-%m-%d} 至 {required_end:%Y-%m-%d}，"
+            "缺失期间将按0计算。"
+        )
+    metrics: dict[str, float] = {}
+    for label, (period_start, period_end) in ranges.items():
+        period = natural[natural["af_date"].dt.date.between(period_start, period_end)]
+        metrics[f"natural_app_reg_{label}"] = float(period["af_installs"].sum())
+        metrics[f"natural_app_revenue_{label}"] = float(period["af_revenue"].sum())
+    return metrics, warnings
+
+
 def _period_ranges(start: date, end: date) -> dict[str, tuple[date, date]]:
     days = (end - start).days + 1
     return {
