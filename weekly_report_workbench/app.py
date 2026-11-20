@@ -115,6 +115,7 @@ html{scroll-behavior:smooth}.stApp{background:var(--paper);color:var(--ink);font
 .upload-head{display:flex;justify-content:space-between;align-items:flex-start;padding-bottom:13px;border-bottom:1px solid #1112;margin-bottom:18px}.upload-head h2{font-family:'Noto Serif SC',serif;font-size:21px;margin:0 0 5px;color:#111;font-weight:700}.upload-head h2:before{content:'01';font-family:'Inter',sans-serif;color:#9ca3af;font-size:12px;margin-right:10px}.upload-head p{margin:0;font-size:11px;color:#6b7280}.upload-count{font-size:10px;color:#111;padding:5px 8px;background:#f3f4f6;border:1px solid #d1d5db}
 [data-testid="stVerticalBlockBorderWrapper"]{border:1px solid #111!important;border-radius:0!important;padding:22px!important;background:#fff!important;box-shadow:none!important;margin-bottom:20px}[data-testid="stFileUploader"]{background:#fff;border:1px solid #111;border-radius:0;padding:13px 14px 7px;min-height:135px;transition:.18s}[data-testid="stFileUploader"]:hover{background:#e3f85a12}[data-testid="stFileUploader"] label{color:#111;font-weight:700;font-size:12px}[data-testid="stFileUploaderDropzone"]{min-height:64px;border:0;background:transparent;border-radius:0;padding:8px 0}[data-testid="stFileUploaderDropzone"] button{color:#111!important;background:var(--lime)!important;border:1px solid #111!important;border-radius:50%!important;width:35px!important;height:35px!important;min-width:35px!important;padding:0!important;font-size:0!important;box-shadow:none!important}[data-testid="stFileUploaderDropzone"] button:after{content:'＋';font-size:20px;color:#111;position:absolute;inset:0;display:grid;place-items:center}[data-testid="stFileUploaderDropzone"] small{font-size:9px;color:#9ca3af}
 .file-status{margin:-6px 0 14px;padding:7px 9px;font-size:9px;letter-spacing:.4px;color:#9ca3af;background:#f7f7f5;border:1px solid #1111}.file-status.ok{color:#111;background:var(--success);border-color:#111}.panel{background:#fff;border:1px solid #111;padding:18px;margin-bottom:18px;box-shadow:none}.panel-title{display:flex;justify-content:space-between;align-items:center;font-size:13px;font-weight:700;padding-bottom:10px;border-bottom:1px solid #1112;margin-bottom:14px}.panel-title span{font-size:9px;font-weight:500;color:#9ca3af}.mini-metrics{display:flex;align-items:end;gap:12px;margin-bottom:14px}.mini-metric{border:0;background:transparent;padding:0}.mini-metric:first-child strong{font-family:'Noto Serif SC',serif;font-size:34px;font-weight:900}.mini-metric strong{display:block;font-size:15px}.mini-metric small{color:#9ca3af;font-size:9px}.progress-track{height:8px;background:#e5e7eb;overflow:hidden}.progress-track i{display:block;height:100%;background:var(--lime);border-right:1px solid #111}.task{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #1111;font-size:10px}.task:last-child{border:0}.task span{color:#9ca3af}.task .done{color:#111;background:var(--lime);border:1px solid #111;padding:1px 5px}
+.cost-card-head{display:flex;align-items:center;justify-content:space-between;margin:0 0 17px}.cost-card-head h3{font-family:'Inter','PingFang SC',sans-serif;font-size:23px;font-weight:800;margin:0;color:#202124}.api-badge{display:inline-flex;align-items:center;gap:6px;border:1px solid #9cde69;border-radius:999px;padding:4px 11px;color:#4f9d24;background:#f8fff2;font-size:11px;font-weight:700}.api-badge:before{content:'';width:7px;height:7px;border-radius:50%;background:#64c832}.api-badge.off{border-color:#d1d5db;color:#8b9199;background:#fafafa}.api-badge.off:before{background:#a8adb5}.api-identity{display:flex;gap:13px;align-items:center;padding:11px 13px;margin-bottom:13px;border:1px solid #e5e7eb;border-radius:6px;background:#fafafa;font-size:12px;color:#303238}.api-identity span{color:#909399}.api-read-status{display:flex;align-items:center;gap:7px;margin:13px 2px 0;color:#8a8f96;font-size:11px;font-weight:600}.api-read-status:before{content:'✓';display:grid;place-items:center;width:13px;height:13px;border-radius:50%;background:#67c83b;color:#fff;font-size:9px}.st-key-web_google_cost_card,.st-key-web_bing_cost_card{border:1px solid #d9dce1!important;border-radius:8px!important;padding:24px!important;background:#fff!important}.st-key-web_google_cost_card [data-testid="stRadio"],.st-key-web_bing_cost_card [data-testid="stRadio"]{background:#f0f1f3;border-radius:7px;padding:4px;margin-bottom:4px}.st-key-web_google_cost_card [data-testid="stRadio"]>div,.st-key-web_bing_cost_card [data-testid="stRadio"]>div{display:grid!important;grid-template-columns:1fr 1fr;gap:3px}.st-key-web_google_cost_card [data-testid="stRadio"] label,.st-key-web_bing_cost_card [data-testid="stRadio"] label{justify-content:center;padding:10px 12px;border-radius:6px;margin:0!important;color:#666;font-weight:600}.st-key-web_google_cost_card [data-testid="stRadio"] label:has(input:checked),.st-key-web_bing_cost_card [data-testid="stRadio"] label:has(input:checked){background:#fff;color:#222;box-shadow:0 1px 4px #0001}.st-key-web_google_cost_card [data-testid="stRadio"] [data-testid="stMarkdownContainer"],.st-key-web_bing_cost_card [data-testid="stRadio"] [data-testid="stMarkdownContainer"]{font-size:12px}.st-key-web_google_cost_card [data-testid="stRadio"] [data-baseweb="radio"],.st-key-web_bing_cost_card [data-testid="stRadio"] [data-baseweb="radio"]{display:none}
 .timeline{border-left:1px solid #d1d5db;margin:5px 0 0 7px;padding-left:16px}.event{position:relative;margin:0 0 17px}.event:last-child{margin-bottom:0}.event:before{content:'';position:absolute;left:-21px;top:4px;width:8px;height:8px;border-radius:50%;background:#fff;border:1px solid #9ca3af}.event:first-child:before{background:var(--lime);border-color:#111}.event b{font-size:10px;display:block;margin-bottom:3px}.event span{font-size:9px;color:#9ca3af}
 [data-testid="stExpander"]{border:1px solid #111!important;border-radius:0!important;background:#fff;box-shadow:none}[data-testid="stExpander"] summary{font-family:'Noto Serif SC',serif;font-weight:700}.stNumberInput input,.stDateInput input{border-radius:0!important;background:#fafafa!important}.stButton>button,.stDownloadButton>button{border-radius:0;min-height:43px;font-size:11px;font-weight:700;border:1px solid #111}.stButton>button[kind="primary"],.stDownloadButton>button[kind="primary"]{background:var(--lime);color:#111;border-color:#111;box-shadow:3px 3px 0 #111}.stButton>button[kind="primary"]:hover,.stDownloadButton>button[kind="primary"]:hover{transform:translate(-1px,-1px);box-shadow:4px 4px 0 #111}.stButton>button[kind="primary"]:disabled{background:#e5e7eb;border-color:#c7c7c7;color:#9ca3af;box-shadow:none}
 .download-card{background:#fff;border:1px solid #111;padding:14px;margin:5px 0 8px}.download-card b{font-family:'Noto Serif SC',serif;font-size:12px}.download-card span{color:#9ca3af;font-size:9px}.section-label{font-family:'Noto Serif SC',serif;font-size:18px;font-weight:700;margin:28px 0 5px}.section-note{color:#6b7280;font-size:10px;margin-bottom:12px}.fixed-footer{height:52px;margin-top:28px;border-top:1px solid #1112;display:flex;align-items:center;justify-content:space-between}.fixed-footer span,.fixed-footer b{font-size:9px;color:#6b7280}footer{visibility:hidden}
@@ -927,42 +928,49 @@ with main_col:
                 st.session_state.pop("ugc_report", None)
                 persist_workspace()
                 st.rerun()
-            web_google_api_ready = google_ads_configured(st.secrets)
-            web_google_source = (
-                st.radio(
-                    "Google数据来源",
-                    ["API自动读取", "上传文件备用"],
-                    horizontal=True,
-                    key="web_google_source",
-                )
-                if web_google_api_ready else "上传文件备用"
-            )
-            web_google_use_api = web_google_api_ready and web_google_source == "API自动读取"
-            if web_google_use_api:
-                google_files = st.session_state.get("shared_web_google_files", [])
+            with st.container(border=True, key="web_google_cost_card"):
+                web_google_api_ready = google_ads_configured(st.secrets)
+                google_badge = "api-badge" if web_google_api_ready else "api-badge off"
+                google_badge_text = "已连接" if web_google_api_ready else "未配置"
                 st.markdown(
-                    "**Google消耗**  \nGoogle Ads API · YM-AIppt-0124"
-                    '<div class="file-status ok">✓ 已连接 · 按报告周期自动读取</div>',
+                    f'<div class="cost-card-head"><h3>Google 消耗</h3>'
+                    f'<span class="{google_badge}">{google_badge_text}</span></div>'
+                    '<div class="api-identity"><span>Google Ads API</span><b>YM-AIppt-0124</b></div>',
                     unsafe_allow_html=True,
                 )
-            else:
-                google_upload_version = st.session_state.get("google_upload_version", 0)
-                google_files = st.file_uploader(
-                    "**Google消耗**  \nGoogle Ads 投放消耗", type=["xlsx","xlsm","csv"],
-                    accept_multiple_files=True, key=f"google_files_{google_upload_version}"
+                web_google_source = (
+                    st.radio(
+                        "Google数据来源",
+                        ["API自动读取", "上传文件备用"],
+                        format_func=lambda value: "API 自动读取" if value == "API自动读取" else "手动上传文件",
+                        horizontal=True,
+                        key="web_google_source",
+                        label_visibility="collapsed",
+                    )
+                    if web_google_api_ready else "上传文件备用"
                 )
-                if google_files:
-                    st.session_state["shared_web_google_files"] = list(google_files)
-                    persist_workspace()
-                else:
+                web_google_use_api = web_google_api_ready and web_google_source == "API自动读取"
+                if web_google_use_api:
                     google_files = st.session_state.get("shared_web_google_files", [])
-                st.markdown(upload_status(google_files), unsafe_allow_html=True)
-                if google_files and st.button("删除已上传的Google文件", key="clear_google_files", use_container_width=True):
-                    st.session_state["google_upload_version"] = google_upload_version + 1
-                    invalidate_web_outputs()
-                    st.session_state.pop("shared_web_google_files", None)
-                    persist_workspace()
-                    st.rerun()
+                    st.markdown('<div class="api-read-status">按报告周期自动获取</div>', unsafe_allow_html=True)
+                else:
+                    google_upload_version = st.session_state.get("google_upload_version", 0)
+                    google_files = st.file_uploader(
+                        "Google消耗文件", type=["xlsx","xlsm","csv"],
+                        accept_multiple_files=True, key=f"google_files_{google_upload_version}"
+                    )
+                    if google_files:
+                        st.session_state["shared_web_google_files"] = list(google_files)
+                        persist_workspace()
+                    else:
+                        google_files = st.session_state.get("shared_web_google_files", [])
+                    st.markdown(upload_status(google_files), unsafe_allow_html=True)
+                    if google_files and st.button("删除已上传的Google文件", key="clear_google_files", use_container_width=True):
+                        st.session_state["google_upload_version"] = google_upload_version + 1
+                        invalidate_web_outputs()
+                        st.session_state.pop("shared_web_google_files", None)
+                        persist_workspace()
+                        st.rerun()
         with u2:
             order_upload_version = st.session_state.get("order_upload_version", 0)
             order_files = st.file_uploader(
@@ -982,42 +990,49 @@ with main_col:
                 st.session_state.pop("ugc_report", None)
                 persist_workspace()
                 st.rerun()
-            web_bing_api_ready = bing_ads_configured(st.secrets)
-            web_bing_source = (
-                st.radio(
-                    "Bing数据来源",
-                    ["API自动读取", "上传文件备用"],
-                    horizontal=True,
-                    key="web_bing_source",
-                )
-                if web_bing_api_ready else "上传文件备用"
-            )
-            web_bing_use_api = web_bing_api_ready and web_bing_source == "API自动读取"
-            if web_bing_use_api:
-                bing_files = st.session_state.get("shared_web_bing_files", [])
+            with st.container(border=True, key="web_bing_cost_card"):
+                web_bing_api_ready = bing_ads_configured(st.secrets)
+                bing_badge = "api-badge" if web_bing_api_ready else "api-badge off"
+                bing_badge_text = "已连接" if web_bing_api_ready else "未配置"
                 st.markdown(
-                    "**Bing消耗**  \nMicrosoft Advertising API · 用户位置报告"
-                    '<div class="file-status ok">✓ 已连接 · 按报告周期自动读取</div>',
+                    f'<div class="cost-card-head"><h3>Bing 消耗</h3>'
+                    f'<span class="{bing_badge}">{bing_badge_text}</span></div>'
+                    '<div class="api-identity"><span>Microsoft Advertising API</span><b>用户位置报告</b></div>',
                     unsafe_allow_html=True,
                 )
-            else:
-                bing_upload_version = st.session_state.get("bing_upload_version", 0)
-                bing_files = st.file_uploader(
-                    "**Bing消耗**  \nBing Ads 投放消耗", type=["xlsx","xlsm","csv"],
-                    accept_multiple_files=True, key=f"bing_files_{bing_upload_version}"
+                web_bing_source = (
+                    st.radio(
+                        "Bing数据来源",
+                        ["API自动读取", "上传文件备用"],
+                        format_func=lambda value: "API 自动读取" if value == "API自动读取" else "手动上传文件",
+                        horizontal=True,
+                        key="web_bing_source",
+                        label_visibility="collapsed",
+                    )
+                    if web_bing_api_ready else "上传文件备用"
                 )
-                if bing_files:
-                    st.session_state["shared_web_bing_files"] = list(bing_files)
-                    persist_workspace()
-                else:
+                web_bing_use_api = web_bing_api_ready and web_bing_source == "API自动读取"
+                if web_bing_use_api:
                     bing_files = st.session_state.get("shared_web_bing_files", [])
-                st.markdown(upload_status(bing_files), unsafe_allow_html=True)
-                if bing_files and st.button("删除已上传的Bing文件", key="clear_bing_files", use_container_width=True):
-                    st.session_state["bing_upload_version"] = bing_upload_version + 1
-                    invalidate_web_outputs()
-                    st.session_state.pop("shared_web_bing_files", None)
-                    persist_workspace()
-                    st.rerun()
+                    st.markdown('<div class="api-read-status">按报告周期自动获取</div>', unsafe_allow_html=True)
+                else:
+                    bing_upload_version = st.session_state.get("bing_upload_version", 0)
+                    bing_files = st.file_uploader(
+                        "Bing消耗文件", type=["xlsx","xlsm","csv"],
+                        accept_multiple_files=True, key=f"bing_files_{bing_upload_version}"
+                    )
+                    if bing_files:
+                        st.session_state["shared_web_bing_files"] = list(bing_files)
+                        persist_workspace()
+                    else:
+                        bing_files = st.session_state.get("shared_web_bing_files", [])
+                    st.markdown(upload_status(bing_files), unsafe_allow_html=True)
+                    if bing_files and st.button("删除已上传的Bing文件", key="clear_bing_files", use_container_width=True):
+                        st.session_state["bing_upload_version"] = bing_upload_version + 1
+                        invalidate_web_outputs()
+                        st.session_state.pop("shared_web_bing_files", None)
+                        persist_workspace()
+                        st.rerun()
         uploaded_count = sum(bool(x) for x in [
             reg_files, order_files, web_google_use_api or google_files, web_bing_use_api or bing_files
         ])
