@@ -13,6 +13,7 @@ from total_report_engine import generate_total_report
 from ugc_report_engine import generate_ugc_report
 from v3_report_engine import generate_v3_reports
 from google_ads_api import fetch_google_costs, google_ads_configured
+from bing_ads_api import fetch_bing_costs, bing_ads_configured
 from target_store import (
     ALL_CHANNEL_TARGET_METRICS,
     ALL_CHANNEL_TARGET_ROWS,
@@ -284,9 +285,14 @@ if active_port == "ugc":
     ugc_app_meta_files = st.session_state.get("shared_app_meta_files", [])
     ugc_app_asa_files = st.session_state.get("shared_app_asa_files", [])
     ugc_google_api_ready = google_ads_configured(st.secrets)
+    ugc_bing_api_ready = bing_ads_configured(st.secrets)
     ugc_web_google_use_api = (
         ugc_google_api_ready
         and st.session_state.get("web_google_source", "API自动读取") == "API自动读取"
+    )
+    ugc_web_bing_use_api = (
+        ugc_bing_api_ready
+        and st.session_state.get("web_bing_source", "API自动读取") == "API自动读取"
     )
     ugc_app_google_use_api = (
         ugc_google_api_ready
@@ -385,14 +391,14 @@ if active_port == "ugc":
                 {"数据": "Web注册数据", "状态": "已就绪" if ugc_reg_files else "未上传"},
                 {"数据": "Web订单数据", "状态": "已就绪" if ugc_order_files else "未上传"},
                 {"数据": "Google消耗", "状态": "API自动读取" if ugc_web_google_use_api else ("备用文件已就绪" if ugc_google_files else "未上传")},
-                {"数据": "Bing消耗", "状态": "已就绪" if ugc_bing_files else "未上传"},
+                {"数据": "Bing消耗", "状态": "API自动读取" if ugc_web_bing_use_api else ("备用文件已就绪" if ugc_bing_files else "未上传")},
                 {
                     "数据": "UGC专项费用",
                     "状态": "已读取" if ugc_web_manual else "未读取Web手动数据",
                 },
             ])
             st.dataframe(source_rows, hide_index=True, use_container_width=True)
-            if not all((ugc_reg_files, ugc_order_files, ugc_web_google_use_api or ugc_google_files, ugc_bing_files)):
+            if not all((ugc_reg_files, ugc_order_files, ugc_web_google_use_api or ugc_google_files, ugc_web_bing_use_api or ugc_bing_files)):
                 st.info(
                     "请先进入左侧“Web 周报”，上传注册、订单、Google和Bing数据，"
                     "并填写UGC专项费用。上传后返回本页即可直接生成。"
@@ -405,13 +411,13 @@ if active_port == "ugc":
         st.markdown('</div>', unsafe_allow_html=True)
         ugc_ready = bool(
             ugc_reg_files and ugc_order_files
-            and (ugc_web_google_use_api or ugc_google_files) and ugc_bing_files
+            and (ugc_web_google_use_api or ugc_google_files) and (ugc_web_bing_use_api or ugc_bing_files)
             and ugc_app_reg_files and ugc_app_order_files
             and (ugc_app_google_use_api or ugc_app_google_files) and ugc_app_meta_files and ugc_app_asa_files
             and ugc_start <= ugc_end
         )
-        if not all((ugc_reg_files, ugc_order_files, ugc_web_google_use_api or ugc_google_files, ugc_bing_files)):
-            ugc_button_label = "请先到Web页面上传注册、订单和Bing数据"
+        if not all((ugc_reg_files, ugc_order_files, ugc_web_google_use_api or ugc_google_files, ugc_web_bing_use_api or ugc_bing_files)):
+            ugc_button_label = "请先到Web页面准备注册、订单和消耗数据"
         elif not ugc_app_reg_files or not ugc_app_order_files:
             ugc_button_label = "请上传APP注册和订单数据"
         elif not all((ugc_app_google_use_api or ugc_app_google_files, ugc_app_meta_files, ugc_app_asa_files)):
@@ -440,8 +446,12 @@ if active_port == "ugc":
                     else:
                         ugc_google = read_uploads(ugc_google_files)
                         st.write(f"Google消耗：{len(ugc_google):,} 行")
-                    ugc_bing = read_uploads(ugc_bing_files)
-                    st.write(f"Bing消耗：{len(ugc_bing):,} 行")
+                    if ugc_web_bing_use_api:
+                        ugc_bing = fetch_bing_costs(st.secrets, api_start, api_end)
+                        st.write(f"Bing消耗（API）：{len(ugc_bing):,} 行")
+                    else:
+                        ugc_bing = read_uploads(ugc_bing_files)
+                        st.write(f"Bing消耗：{len(ugc_bing):,} 行")
                     ugc_app_reg = read_uploads(ugc_app_reg_files)
                     st.write(f"APP注册数据：{len(ugc_app_reg):,} 行")
                     ugc_app_orders = read_uploads(ugc_app_order_files)
@@ -972,25 +982,44 @@ with main_col:
                 st.session_state.pop("ugc_report", None)
                 persist_workspace()
                 st.rerun()
-            bing_upload_version = st.session_state.get("bing_upload_version", 0)
-            bing_files = st.file_uploader(
-                "**Bing消耗**  \nBing Ads 投放消耗", type=["xlsx","xlsm","csv"],
-                accept_multiple_files=True, key=f"bing_files_{bing_upload_version}"
+            web_bing_api_ready = bing_ads_configured(st.secrets)
+            web_bing_source = (
+                st.radio(
+                    "Bing数据来源",
+                    ["API自动读取", "上传文件备用"],
+                    horizontal=True,
+                    key="web_bing_source",
+                )
+                if web_bing_api_ready else "上传文件备用"
             )
-            if bing_files:
-                st.session_state["shared_web_bing_files"] = list(bing_files)
-                persist_workspace()
-            else:
+            web_bing_use_api = web_bing_api_ready and web_bing_source == "API自动读取"
+            if web_bing_use_api:
                 bing_files = st.session_state.get("shared_web_bing_files", [])
-            st.markdown(upload_status(bing_files), unsafe_allow_html=True)
-            if bing_files and st.button("删除已上传的Bing文件", key="clear_bing_files", use_container_width=True):
-                st.session_state["bing_upload_version"] = bing_upload_version + 1
-                invalidate_web_outputs()
-                st.session_state.pop("shared_web_bing_files", None)
-                persist_workspace()
-                st.rerun()
+                st.markdown(
+                    "**Bing消耗**  \nMicrosoft Advertising API · 用户位置报告"
+                    '<div class="file-status ok">✓ 已连接 · 按报告周期自动读取</div>',
+                    unsafe_allow_html=True,
+                )
+            else:
+                bing_upload_version = st.session_state.get("bing_upload_version", 0)
+                bing_files = st.file_uploader(
+                    "**Bing消耗**  \nBing Ads 投放消耗", type=["xlsx","xlsm","csv"],
+                    accept_multiple_files=True, key=f"bing_files_{bing_upload_version}"
+                )
+                if bing_files:
+                    st.session_state["shared_web_bing_files"] = list(bing_files)
+                    persist_workspace()
+                else:
+                    bing_files = st.session_state.get("shared_web_bing_files", [])
+                st.markdown(upload_status(bing_files), unsafe_allow_html=True)
+                if bing_files and st.button("删除已上传的Bing文件", key="clear_bing_files", use_container_width=True):
+                    st.session_state["bing_upload_version"] = bing_upload_version + 1
+                    invalidate_web_outputs()
+                    st.session_state.pop("shared_web_bing_files", None)
+                    persist_workspace()
+                    st.rerun()
         uploaded_count = sum(bool(x) for x in [
-            reg_files, order_files, web_google_use_api or google_files, bing_files
+            reg_files, order_files, web_google_use_api or google_files, web_bing_use_api or bing_files
         ])
         upload_header.markdown(f'<div class="upload-head"><div><h2>上传源数据</h2><p>上传4类数据，系统将自动完成格式检查和数据预处理</p></div><div class="upload-count">{uploaded_count} / 4 已完成</div></div>', unsafe_allow_html=True)
 
@@ -1341,11 +1370,11 @@ with side_col:
     st.markdown('</div>', unsafe_allow_html=True)
 
     completed = 1 + uploaded_count; readiness = int(completed / 5 * 100)
-    task_rows = [("报告周期",True),("注册数据",bool(reg_files)),("订单数据",bool(order_files)),("Google消耗",bool(web_google_use_api or google_files)),("Bing消耗",bool(bing_files))]
+    task_rows = [("报告周期",True),("注册数据",bool(reg_files)),("订单数据",bool(order_files)),("Google消耗",bool(web_google_use_api or google_files)),("Bing消耗",bool(web_bing_use_api or bing_files))]
     tasks_html = "".join(f'<div class="task"><b>{"✓" if done else "○"} {name}</b><span class="{"done" if done else ""}">{"已完成" if done else "待上传"}</span></div>' for name,done in task_rows)
     st.markdown(f'<div class="panel"><div class="panel-title">报告准备度<span>{readiness}%</span></div><div class="mini-metrics"><div class="mini-metric"><strong>{readiness}%</strong><small>当前进度</small></div><div class="mini-metric"><strong>{completed} / 5</strong><small>已完成项目</small></div></div><div class="progress-track"><i style="width:{readiness}%"></i></div><div style="height:10px"></div>{tasks_html}</div>', unsafe_allow_html=True)
     st.markdown('<div class="panel"><div class="panel-title">自动化流程<span>1–3分钟</span></div><div class="timeline"><div class="event"><b>数据文件检查</b><span>上传后自动校验必要字段</span></div><div class="event"><b>字段自动识别</b><span>兼容Google与Bing中文字段</span></div><div class="event"><b>报告生成</b><span>输出全渠道 / SEM / SEM分地区 / 自然来源 / 会员类型</span></div></div></div>', unsafe_allow_html=True)
-    ready = all([reg_files, order_files, web_google_use_api or google_files, bing_files]) and start <= end
+    ready = all([reg_files, order_files, web_google_use_api or google_files, web_bing_use_api or bing_files]) and start <= end
     generate_clicked = st.button(
         "✦ 开始生成报告" if ready else "请先上传全部必要数据",
         type="primary", disabled=not ready, use_container_width=True,
@@ -1371,7 +1400,16 @@ if generate_clicked:
                 else:
                     google = read_uploads(google_files)
                     st.write(f"Google消耗：{len(google):,} 行")
-                bing = read_uploads(bing_files); st.write(f"Bing消耗：{len(bing):,} 行")
+                if web_bing_use_api:
+                    api_start, api_end = google_api_date_window(start, end)
+                    bing = fetch_bing_costs(st.secrets, api_start, api_end)
+                    st.write(
+                        f"Bing消耗（API）：{len(bing):,} 行 · "
+                        f"{api_start:%Y-%m-%d} 至 {api_end:%Y-%m-%d}"
+                    )
+                else:
+                    bing = read_uploads(bing_files)
+                    st.write(f"Bing消耗：{len(bing):,} 行")
                 # 直接把当前目标配置交给生成引擎。这样刚在网站保存的目标无需等待
                 # Streamlit 重新部署，也会立即写入本次生成的 Excel。
                 reports, warnings, web_summary = generate_v3_reports(
