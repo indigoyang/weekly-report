@@ -79,9 +79,9 @@ def invalidate_web_outputs():
     st.session_state.pop("total_report", None)
     st.session_state.pop("ugc_report", None)
 admin_mode = str(st.query_params.get("admin", "")) == "1"
-active_port = str(st.query_params.get("port", "web")).lower()
-if active_port not in {"web", "app", "ugc"}:
-    active_port = "web"
+active_port = str(st.query_params.get("port", "data")).lower()
+if active_port not in {"data", "web", "app", "ugc"}:
+    active_port = "data"
 workspace_id = initialize_workspace(st.query_params, st.session_state)
 
 
@@ -190,6 +190,8 @@ html{font-size:15px!important}
 [data-testid="stSidebar"] .stButton{margin:0 0 12px!important}
 [data-testid="stSidebar"] .stButton>button{height:52px!important;min-height:52px!important;padding:0 16px!important;border-radius:8px!important;font-size:15px!important;font-weight:700!important}
 [data-testid="stSidebar"] .stButton>button p{font-size:15px!important;font-weight:700!important}
+[data-testid="stSidebar"] .sidebar-nav-group{font-size:12px;font-weight:700;color:#9ca3af;margin:8px 8px 10px}
+[data-testid="stSidebar"] .sidebar-nav-group.report{margin-top:24px}
 
 .topbar{padding:0 0 24px!important;margin:0 0 26px!important}
 .eyebrow{font-size:10px!important;letter-spacing:2px!important;margin-bottom:8px!important}
@@ -245,29 +247,141 @@ if not admin_mode:
 
 with st.sidebar:
     st.markdown(
-        '<div class="sidebar-section-title">生成模块</div>',
+        '<div class="sidebar-nav-group">数据准备</div>',
         unsafe_allow_html=True,
     )
-    if st.button("🖥️  Web 周报", key="port_web", help="进入Web周报生成", use_container_width=True):
-        st.query_params["port"] = "web"
+    if st.button("📦  全局数据总控台", key="port_data", help="统一准备所有报表数据", use_container_width=True):
+        st.query_params["port"] = "data"
         st.rerun()
+    st.markdown('<div class="sidebar-nav-group report">报表生成</div>', unsafe_allow_html=True)
     if st.button("📱  App 周报", key="port_app", help="进入App周报生成", use_container_width=True):
         st.query_params["port"] = "app"
         st.rerun()
-    if st.button("🎬  UGC数据", key="port_ugc", help="使用Web订单和注册数据生成UGC监控表", use_container_width=True):
+    if st.button("🖥️  Web 周报", key="port_web", help="进入Web周报生成", use_container_width=True):
+        st.query_params["port"] = "web"
+        st.rerun()
+    if st.button("📊  UGC 数据", key="port_ugc", help="使用Web订单和注册数据生成UGC监控表", use_container_width=True):
         st.query_params["port"] = "ugc"
         st.rerun()
     st.caption("上传文件和手动数据临时保存24小时；刷新后可恢复。")
 
-active_button_key = {"web": "port_web", "app": "port_app", "ugc": "port_ugc"}[active_port]
+active_button_key = {"data": "port_data", "web": "port_web", "app": "port_app", "ugc": "port_ugc"}[active_port]
 st.markdown(
-    f"<style>.st-key-{active_button_key} button{{background:var(--lime)!important;"
-    "color:#111!important;border-color:#111!important;box-shadow:3px 3px 0 #111!important;"
-    "transform:translate(-1px,-1px)!important}}"
-    f".st-key-{active_button_key} button:after{{content:'';position:absolute;left:-1px;top:22%;"
-    "bottom:22%;width:4px;background:#111;border-radius:0 4px 4px 0}}</style>",
+    f"<style>.st-key-{active_button_key} button{{background:#4655dc!important;"
+    "color:#fff!important;border-color:#4655dc!important;box-shadow:none!important;"
+    "transform:none!important}}</style>",
     unsafe_allow_html=True,
 )
+
+if active_port == "data":
+    st.markdown(
+        """<header class="topbar"><div class="eyebrow">Global Data Console</div>
+        <h1>全局数据总控台</h1><p>所有数据只需准备一次，Web、App和UGC报表自动复用</p>
+        <div class="steps"><div class="step on"><b>01</b>选择周期</div>
+        <div class="step-line"></div><div class="step on"><b>02</b>准备数据</div>
+        <div class="step-line"></div><div class="step"><b>03</b>生成报表</div></div></header>""",
+        unsafe_allow_html=True,
+    )
+    today = date.today()
+    control_end_default = today - timedelta(days=1)
+    control_start_default = control_end_default - timedelta(days=6)
+    period_box = st.container(border=True, key="global_period_box")
+    with period_box:
+        st.markdown('<div class="section-label" style="margin-top:0!important">统一报告周期</div>', unsafe_allow_html=True)
+        p1, p2 = st.columns(2)
+        with p1:
+            control_start = st.date_input(
+                "开始日期", st.session_state.get("report_start", control_start_default), key="global_report_start"
+            )
+        with p2:
+            control_end = st.date_input(
+                "结束日期", st.session_state.get("report_end", control_end_default), key="global_report_end"
+            )
+        st.session_state["report_start"] = control_start
+        st.session_state["report_end"] = control_end
+        st.session_state["app_report_start"] = control_start
+        st.session_state["app_report_end"] = control_end
+        st.session_state["ugc_report_start"] = control_start
+        st.session_state["ugc_report_end"] = control_end
+
+    def global_upload(label, description, shared_key, widget_key):
+        files = st.file_uploader(
+            f"**{label}**  \n{description}", type=["xlsx", "xlsm", "csv"],
+            accept_multiple_files=True, key=widget_key,
+        )
+        if files:
+            st.session_state[shared_key] = list(files)
+            persist_workspace()
+        else:
+            files = st.session_state.get(shared_key, [])
+        if files:
+            names = "、".join(escape(item.name) for item in files)
+            st.markdown(
+                f'<div class="file-status ok">✓ 已上传 {len(files)} 个文件<span>{names}</span></div>',
+                unsafe_allow_html=True,
+            )
+        return files
+
+    st.markdown('<div class="section-label">共用数据</div><div class="section-note">Web与UGC共同使用，只需上传一次。</div>', unsafe_allow_html=True)
+    common_box = st.container(border=True, key="global_common_box")
+    with common_box:
+        c1, c2 = st.columns(2)
+        with c1:
+            global_upload("注册数据", "用户注册与渠道来源", "shared_registration_files", "global_reg_files")
+        with c2:
+            global_upload("订单数据", "订单及收入相关数据", "shared_order_files", "global_order_files")
+
+    st.markdown('<div class="section-label">Web 数据</div><div class="section-note">Google和Bing优先通过API读取，也可在Web页面切换为手动上传。</div>', unsafe_allow_html=True)
+    web_box = st.container(border=True, key="global_web_box")
+    with web_box:
+        w1, w2 = st.columns(2)
+        with w1:
+            google_ready = google_ads_configured(st.secrets)
+            st.markdown(
+                '<div class="cost-card-head"><h3>Google 消耗</h3>'
+                f'<span class="api-badge{"" if google_ready else " off"}">{"已连接" if google_ready else "未连接"}</span></div>'
+                '<div class="api-identity"><span>Google Ads API</span><b>YM-AIppt-0124</b></div>',
+                unsafe_allow_html=True,
+            )
+        with w2:
+            bing_ready = bing_ads_configured(st.secrets)
+            st.markdown(
+                '<div class="cost-card-head"><h3>Bing 消耗</h3>'
+                f'<span class="api-badge{"" if bing_ready else " off"}">{"已连接" if bing_ready else "未连接"}</span></div>'
+                '<div class="api-identity"><span>Microsoft Advertising API</span><b>用户位置报告</b></div>',
+                unsafe_allow_html=True,
+            )
+
+    st.markdown('<div class="section-label">App 与UGC数据</div><div class="section-note">App投放及UGC归因所需的数据集中准备。</div>', unsafe_allow_html=True)
+    app_box = st.container(border=True, key="global_app_box")
+    with app_box:
+        a1, a2 = st.columns(2)
+        with a1:
+            global_upload("APP注册数据", "包含APP渠道来源字段", "shared_ugc_app_reg_files", "global_app_reg_files")
+            global_upload("ASA消耗", "ASA分地区分天消耗", "shared_app_asa_files", "global_asa_files")
+        with a2:
+            global_upload("APP订单数据", "包含APP渠道来源字段", "shared_ugc_app_order_files", "global_app_order_files")
+            global_upload("AppsFlyer营收", "分天、地区与媒体渠道数据", "shared_app_appsflyer_files", "global_appsflyer_files")
+
+    common_ready = bool(st.session_state.get("shared_registration_files")) and bool(st.session_state.get("shared_order_files"))
+    app_ready = bool(st.session_state.get("shared_app_asa_files")) and bool(st.session_state.get("shared_app_appsflyer_files"))
+    ugc_ready = bool(st.session_state.get("shared_ugc_app_reg_files")) and bool(st.session_state.get("shared_ugc_app_order_files"))
+    ready_count = sum([
+        bool(st.session_state.get("shared_registration_files")), bool(st.session_state.get("shared_order_files")),
+        google_ads_configured(st.secrets), bing_ads_configured(st.secrets),
+        bool(st.session_state.get("shared_app_asa_files")), bool(st.session_state.get("shared_app_appsflyer_files")),
+        bool(st.session_state.get("shared_ugc_app_reg_files")), bool(st.session_state.get("shared_ugc_app_order_files")),
+    ])
+    st.markdown(
+        f'<div class="panel"><div class="panel-title">数据准备度<span>{ready_count}/8</span></div>'
+        f'<div class="progress-track"><i style="width:{ready_count / 8 * 100:.0f}%"></i></div>'
+        f'<div class="task"><b>Web周报</b><span>{"数据已就绪" if common_ready else "仍需补充共用数据"}</span></div>'
+        f'<div class="task"><b>App周报</b><span>{"数据已就绪" if app_ready else "仍需补充App数据"}</span></div>'
+        f'<div class="task"><b>UGC数据</b><span>{"数据已就绪" if common_ready and ugc_ready else "仍需补充归因数据"}</span></div></div>',
+        unsafe_allow_html=True,
+    )
+    st.info("数据准备完成后，请从左侧进入对应报表页面补充目标或成本，并生成报表。")
+    st.stop()
 
 if active_port == "ugc":
     st.markdown(
