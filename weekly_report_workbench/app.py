@@ -529,6 +529,49 @@ if active_port == "app":
             app_upload_header = st.empty()
             app_u1, app_u2 = st.columns(2)
             with app_u1:
+                app_asa_upload_version = st.session_state.get("app_asa_upload_version", 0)
+                app_asa_files = st.file_uploader(
+                    "**ASA消耗**  \nASA 分地区分天消耗",
+                    type=["xlsx", "xlsm", "csv"], accept_multiple_files=True,
+                    key=f"app_asa_files_{app_asa_upload_version}",
+                )
+                if app_asa_files:
+                    st.session_state["shared_app_asa_files"] = list(app_asa_files)
+                    persist_workspace()
+                else:
+                    app_asa_files = st.session_state.get("shared_app_asa_files", [])
+                st.markdown(app_upload_status(app_asa_files), unsafe_allow_html=True)
+                if app_asa_files and st.button(
+                    "删除已上传的ASA文件", key="clear_app_asa", use_container_width=True
+                ):
+                    st.session_state["app_asa_upload_version"] = app_asa_upload_version + 1
+                    invalidate_app_outputs()
+                    st.session_state.pop("shared_app_asa_files", None)
+                    persist_workspace()
+                    st.rerun()
+            with app_u2:
+                app_appsflyer_upload_version = st.session_state.get("app_appsflyer_upload_version", 0)
+                app_appsflyer_files = st.file_uploader(
+                    "**AppsFlyer营收**  \n分天、地区与媒体渠道营收",
+                    type=["xlsx", "xlsm", "csv"], accept_multiple_files=True,
+                    key=f"app_appsflyer_files_{app_appsflyer_upload_version}",
+                )
+                if app_appsflyer_files:
+                    st.session_state["shared_app_appsflyer_files"] = list(app_appsflyer_files)
+                    persist_workspace()
+                else:
+                    app_appsflyer_files = st.session_state.get("shared_app_appsflyer_files", [])
+                st.markdown(app_upload_status(app_appsflyer_files), unsafe_allow_html=True)
+                if app_appsflyer_files and st.button(
+                    "删除AppsFlyer营收文件", key="clear_app_appsflyer", use_container_width=True
+                ):
+                    st.session_state["app_appsflyer_upload_version"] = app_appsflyer_upload_version + 1
+                    invalidate_app_outputs()
+                    st.session_state.pop("shared_app_appsflyer_files", None)
+                    persist_workspace()
+                    st.rerun()
+            app_u3, app_u4 = st.columns(2)
+            with app_u3:
                 with st.container(border=True, key="app_google_cost_card"):
                     app_google_api_ready = google_ads_configured(st.secrets)
                     app_google_badge = "api-badge" if app_google_api_ready else "api-badge off"
@@ -575,51 +618,6 @@ if active_port == "app":
                             st.session_state.pop("shared_app_google_files", None)
                             persist_workspace()
                             st.rerun()
-            with app_u2:
-                app_asa_upload_version = st.session_state.get("app_asa_upload_version", 0)
-                app_asa_files = st.file_uploader(
-                    "**ASA消耗**  \nASA 分地区分天消耗",
-                    type=["xlsx", "xlsm", "csv"], accept_multiple_files=True,
-                    key=f"app_asa_files_{app_asa_upload_version}",
-                )
-                if app_asa_files:
-                    st.session_state["shared_app_asa_files"] = list(app_asa_files)
-                    persist_workspace()
-                else:
-                    app_asa_files = st.session_state.get("shared_app_asa_files", [])
-                st.markdown(app_upload_status(app_asa_files), unsafe_allow_html=True)
-                if app_asa_files and st.button(
-                    "删除已上传的ASA文件", key="clear_app_asa", use_container_width=True
-                ):
-                    st.session_state["app_asa_upload_version"] = app_asa_upload_version + 1
-                    invalidate_app_outputs()
-                    st.session_state.pop("shared_app_asa_files", None)
-                    persist_workspace()
-                    st.rerun()
-            app_u3, app_u4 = st.columns(2)
-            with app_u3:
-                app_appsflyer_upload_version = st.session_state.get("app_appsflyer_upload_version", 0)
-                app_appsflyer_files = st.file_uploader(
-                    "**AppsFlyer营收**  \n分天、地区与媒体渠道营收",
-                    type=["xlsx", "xlsm", "csv"], accept_multiple_files=True,
-                    key=f"app_appsflyer_files_{app_appsflyer_upload_version}",
-                )
-                if app_appsflyer_files:
-                    st.session_state["shared_app_appsflyer_files"] = list(app_appsflyer_files)
-                    persist_workspace()
-                else:
-                    app_appsflyer_files = st.session_state.get("shared_app_appsflyer_files", [])
-                st.markdown(app_upload_status(app_appsflyer_files), unsafe_allow_html=True)
-                if app_appsflyer_files and st.button(
-                    "删除AppsFlyer营收文件", key="clear_app_appsflyer", use_container_width=True
-                ):
-                    st.session_state["app_appsflyer_upload_version"] = app_appsflyer_upload_version + 1
-                    invalidate_app_outputs()
-                    st.session_state.pop("shared_app_appsflyer_files", None)
-                    persist_workspace()
-                    st.rerun()
-            with app_u4:
-                pass
             app_uploaded_count = sum(
                 bool(value)
                 for value in (
