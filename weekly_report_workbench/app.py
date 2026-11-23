@@ -250,7 +250,7 @@ with st.sidebar:
         '<div class="sidebar-nav-group">数据准备</div>',
         unsafe_allow_html=True,
     )
-    if st.button("📦  全局数据总控台", key="port_data", help="统一准备所有报表数据", use_container_width=True):
+    if st.button("📦  上传与数据连接", key="port_data", help="统一准备所有报表数据", use_container_width=True):
         st.query_params["port"] = "data"
         st.rerun()
     st.markdown('<div class="sidebar-nav-group report">报表生成</div>', unsafe_allow_html=True)
@@ -276,10 +276,10 @@ st.markdown(
 if active_port == "data":
     st.markdown(
         """<header class="topbar"><div class="eyebrow">Global Data Console</div>
-        <h1>全局数据总控台</h1><p>所有数据只需准备一次，Web、App和UGC报表自动复用</p>
+        <h1>上传与数据连接</h1><p>原始文件和API数据只需准备一次，Web、App和UGC报表自动复用</p>
         <div class="steps"><div class="step on"><b>01</b>选择周期</div>
         <div class="step-line"></div><div class="step on"><b>02</b>准备数据</div>
-        <div class="step-line"></div><div class="step"><b>03</b>生成报表</div></div></header>""",
+        <div class="step-line"></div><div class="step"><b>03</b>进入报表页</div></div></header>""",
         unsafe_allow_html=True,
     )
     today = date.today()
@@ -331,25 +331,45 @@ if active_port == "data":
         with c2:
             global_upload("订单数据", "订单及收入相关数据", "shared_order_files", "global_order_files")
 
-    st.markdown('<div class="section-label">Web 数据</div><div class="section-note">Google和Bing优先通过API读取，也可在Web页面切换为手动上传。</div>', unsafe_allow_html=True)
+    def global_api_source(title, identity, ready, state_key, shared_key, widget_key):
+        st.markdown(
+            f'<div class="cost-card-head"><h3>{title}</h3>'
+            f'<span class="api-badge{"" if ready else " off"}">{"API已连接" if ready else "API未连接"}</span></div>'
+            f'<div class="api-identity"><span>{identity}</span><b>自动读取或手动备用</b></div>',
+            unsafe_allow_html=True,
+        )
+        if ready:
+            source = st.radio(
+                f"{title}数据来源", ["API自动读取", "上传文件备用"],
+                format_func=lambda value: "API 自动读取" if value == "API自动读取" else "手动上传文件",
+                horizontal=True, key=state_key, label_visibility="collapsed",
+            )
+        else:
+            source = "上传文件备用"
+            st.session_state[state_key] = source
+        use_api = ready and source == "API自动读取"
+        files = st.session_state.get(shared_key, [])
+        if use_api:
+            st.markdown('<div class="api-read-status">按报告周期自动获取</div>', unsafe_allow_html=True)
+        else:
+            files = global_upload(title, "API不可用时的手动备用文件", shared_key, widget_key)
+        return use_api, files
+
+    st.markdown('<div class="section-label">Web 数据</div><div class="section-note">Google和Bing在这里统一选择API或手动备用文件。</div>', unsafe_allow_html=True)
     web_box = st.container(border=True, key="global_web_box")
     with web_box:
         w1, w2 = st.columns(2)
         with w1:
             google_ready = google_ads_configured(st.secrets)
-            st.markdown(
-                '<div class="cost-card-head"><h3>Google 消耗</h3>'
-                f'<span class="api-badge{"" if google_ready else " off"}">{"已连接" if google_ready else "未连接"}</span></div>'
-                '<div class="api-identity"><span>Google Ads API</span><b>YM-AIppt-0124</b></div>',
-                unsafe_allow_html=True,
+            web_google_use_api, web_google_files = global_api_source(
+                "Google 消耗", "Google Ads API · YM-AIppt-0124", google_ready,
+                "web_google_source", "shared_web_google_files", "global_web_google_files",
             )
         with w2:
             bing_ready = bing_ads_configured(st.secrets)
-            st.markdown(
-                '<div class="cost-card-head"><h3>Bing 消耗</h3>'
-                f'<span class="api-badge{"" if bing_ready else " off"}">{"已连接" if bing_ready else "未连接"}</span></div>'
-                '<div class="api-identity"><span>Microsoft Advertising API</span><b>用户位置报告</b></div>',
-                unsafe_allow_html=True,
+            web_bing_use_api, web_bing_files = global_api_source(
+                "Bing 消耗", "Microsoft Advertising API · 用户位置报告", bing_ready,
+                "web_bing_source", "shared_web_bing_files", "global_web_bing_files",
             )
 
     st.markdown('<div class="section-label">App 与UGC数据</div><div class="section-note">App投放及UGC归因所需的数据集中准备。</div>', unsafe_allow_html=True)
@@ -362,22 +382,29 @@ if active_port == "data":
         with a2:
             global_upload("APP订单数据", "包含APP渠道来源字段", "shared_ugc_app_order_files", "global_app_order_files")
             global_upload("AppsFlyer营收", "分天、地区与媒体渠道数据", "shared_app_appsflyer_files", "global_appsflyer_files")
+        st.markdown("**APP Google 消耗**")
+        app_google_use_api, app_google_files = global_api_source(
+            "APP Google 消耗", "Google Ads API · YM-AiPPT-APP-0508", google_ready,
+            "app_google_source", "shared_app_google_files", "global_app_google_files",
+        )
 
     common_ready = bool(st.session_state.get("shared_registration_files")) and bool(st.session_state.get("shared_order_files"))
-    app_ready = bool(st.session_state.get("shared_app_asa_files")) and bool(st.session_state.get("shared_app_appsflyer_files"))
+    web_ready = common_ready and bool(web_google_use_api or web_google_files) and bool(web_bing_use_api or web_bing_files)
+    app_ready = bool(app_google_use_api or app_google_files) and bool(st.session_state.get("shared_app_asa_files")) and bool(st.session_state.get("shared_app_appsflyer_files"))
     ugc_ready = bool(st.session_state.get("shared_ugc_app_reg_files")) and bool(st.session_state.get("shared_ugc_app_order_files"))
     ready_count = sum([
         bool(st.session_state.get("shared_registration_files")), bool(st.session_state.get("shared_order_files")),
-        google_ads_configured(st.secrets), bing_ads_configured(st.secrets),
+        bool(web_google_use_api or web_google_files), bool(web_bing_use_api or web_bing_files),
+        bool(app_google_use_api or app_google_files),
         bool(st.session_state.get("shared_app_asa_files")), bool(st.session_state.get("shared_app_appsflyer_files")),
         bool(st.session_state.get("shared_ugc_app_reg_files")), bool(st.session_state.get("shared_ugc_app_order_files")),
     ])
     st.markdown(
-        f'<div class="panel"><div class="panel-title">数据准备度<span>{ready_count}/8</span></div>'
-        f'<div class="progress-track"><i style="width:{ready_count / 8 * 100:.0f}%"></i></div>'
-        f'<div class="task"><b>Web周报</b><span>{"数据已就绪" if common_ready else "仍需补充共用数据"}</span></div>'
+        f'<div class="panel"><div class="panel-title">数据准备度<span>{ready_count}/9</span></div>'
+        f'<div class="progress-track"><i style="width:{ready_count / 9 * 100:.0f}%"></i></div>'
+        f'<div class="task"><b>Web周报</b><span>{"数据已就绪" if web_ready else "仍需补充Web数据"}</span></div>'
         f'<div class="task"><b>App周报</b><span>{"数据已就绪" if app_ready else "仍需补充App数据"}</span></div>'
-        f'<div class="task"><b>UGC数据</b><span>{"数据已就绪" if common_ready and ugc_ready else "仍需补充归因数据"}</span></div></div>',
+        f'<div class="task"><b>UGC数据</b><span>{"数据已就绪" if web_ready and app_ready and ugc_ready else "仍需补充归因数据"}</span></div></div>',
         unsafe_allow_html=True,
     )
     st.info("数据准备完成后，请从左侧进入对应报表页面补充目标或成本，并生成报表。")
@@ -399,6 +426,8 @@ if active_port == "ugc":
     ugc_bing_files = st.session_state.get("shared_web_bing_files", [])
     ugc_app_google_files = st.session_state.get("shared_app_google_files", [])
     ugc_app_asa_files = st.session_state.get("shared_app_asa_files", [])
+    ugc_app_reg_files = st.session_state.get("shared_ugc_app_reg_files", [])
+    ugc_app_order_files = st.session_state.get("shared_ugc_app_order_files", [])
     ugc_google_api_ready = google_ads_configured(st.secrets)
     ugc_bing_api_ready = bing_ads_configured(st.secrets)
     ugc_web_google_use_api = (
@@ -440,57 +469,22 @@ if active_port == "ugc":
         )
         with st.container(border=True, key="ugc_app_source_box"):
             st.markdown(
-                '<div class="upload-head"><div><h2>上传APP源数据</h2>'
-                '<p>APP侧必须使用带APP渠道来源字段的独立注册表和订单表。</p></div></div>',
+                '<div class="upload-head"><div><h2>已准备的数据</h2>'
+                '<p>所有原始文件和API来源由“上传与数据连接”统一管理。</p></div></div>',
                 unsafe_allow_html=True,
             )
-            ugc_app_reg_version = st.session_state.get("ugc_app_reg_version", 0)
-            ugc_app_order_version = st.session_state.get("ugc_app_order_version", 0)
-            ugc_u1, ugc_u2 = st.columns(2)
-            with ugc_u1:
-                ugc_app_reg_files = st.file_uploader(
-                    "**APP注册数据**  \n包含APP渠道来源字段",
-                    type=["xlsx", "xlsm", "csv"], accept_multiple_files=True,
-                    key=f"ugc_app_reg_files_{ugc_app_reg_version}",
-                )
-                if ugc_app_reg_files:
-                    st.session_state["shared_ugc_app_reg_files"] = list(ugc_app_reg_files)
-                    persist_workspace()
-                else:
-                    ugc_app_reg_files = st.session_state.get("shared_ugc_app_reg_files", [])
-                st.markdown(ugc_upload_status(ugc_app_reg_files), unsafe_allow_html=True)
-                if ugc_app_reg_files and st.button(
-                    "删除APP注册文件", key="clear_ugc_app_reg", use_container_width=True
-                ):
-                    st.session_state["ugc_app_reg_version"] = ugc_app_reg_version + 1
-                    st.session_state.pop("ugc_report", None)
-                    st.session_state.pop("shared_ugc_app_reg_files", None)
-                    persist_workspace()
-                    st.rerun()
-            with ugc_u2:
-                ugc_app_order_files = st.file_uploader(
-                    "**APP订单数据**  \n包含APP渠道来源字段",
-                    type=["xlsx", "xlsm", "csv"], accept_multiple_files=True,
-                    key=f"ugc_app_order_files_{ugc_app_order_version}",
-                )
-                if ugc_app_order_files:
-                    st.session_state["shared_ugc_app_order_files"] = list(ugc_app_order_files)
-                    persist_workspace()
-                else:
-                    ugc_app_order_files = st.session_state.get("shared_ugc_app_order_files", [])
-                st.markdown(ugc_upload_status(ugc_app_order_files), unsafe_allow_html=True)
-                if ugc_app_order_files and st.button(
-                    "删除APP订单文件", key="clear_ugc_app_order", use_container_width=True
-                ):
-                    st.session_state["ugc_app_order_version"] = ugc_app_order_version + 1
-                    st.session_state.pop("ugc_report", None)
-                    st.session_state.pop("shared_ugc_app_order_files", None)
-                    persist_workspace()
-                    st.rerun()
+            ugc_source_rows = pd.DataFrame([
+                {"已准备数据": "APP注册数据", "状态": "✓ 已就绪" if ugc_app_reg_files else "缺失"},
+                {"已准备数据": "APP订单数据", "状态": "✓ 已就绪" if ugc_app_order_files else "缺失"},
+            ])
+            st.dataframe(ugc_source_rows, hide_index=True, use_container_width=True)
+            if st.button("去补充或替换数据", key="ugc_go_data", use_container_width=True):
+                st.query_params["port"] = "data"
+                st.rerun()
         with st.container(border=True, key="ugc_web_source_box"):
             st.markdown(
-                '<div class="upload-head"><div><h2>复用Web源数据</h2>'
-                '<p>Web侧继续使用Web周报页面已经上传的注册与订单文件。</p></div></div>',
+                '<div class="upload-head"><div><h2>共享数据状态</h2>'
+                '<p>UGC自动复用Web和App数据，本页只需补充UGC专属指标。</p></div></div>',
                 unsafe_allow_html=True,
             )
             source_rows = pd.DataFrame([
@@ -506,8 +500,7 @@ if active_port == "ugc":
             st.dataframe(source_rows, hide_index=True, use_container_width=True)
             if not all((ugc_reg_files, ugc_order_files, ugc_web_google_use_api or ugc_google_files, ugc_web_bing_use_api or ugc_bing_files)):
                 st.info(
-                    "请先进入左侧“Web 周报”，上传注册、订单、Google和Bing数据，"
-                    "并填写UGC专项费用。上传后返回本页即可直接生成。"
+                    "请先到“上传与数据连接”补齐注册、订单、Google和Bing数据。"
                 )
             st.markdown("**复用APP投放页消耗数据**")
             app_cost_source_rows = pd.DataFrame([
@@ -516,7 +509,7 @@ if active_port == "ugc":
             ])
             st.dataframe(app_cost_source_rows, hide_index=True, use_container_width=True)
             if not all((ugc_app_google_use_api or ugc_app_google_files, ugc_app_asa_files)):
-                st.info("请先进入左侧“App 周报”，上传ASA消耗；Google配置API后会自动读取。")
+                st.info("请先到“上传与数据连接”补齐APP Google和ASA消耗。")
     with ugc_side:
         st.markdown('<div class="panel"><div class="panel-title">UGC报告周期<span>自动保存</span></div>', unsafe_allow_html=True)
         ugc_start = st.date_input("开始日期", ugc_default_start, key="ugc_report_start")
@@ -531,11 +524,11 @@ if active_port == "ugc":
             and ugc_start <= ugc_end
         )
         if not all((ugc_reg_files, ugc_order_files, ugc_web_google_use_api or ugc_google_files, ugc_web_bing_use_api or ugc_bing_files)):
-            ugc_button_label = "请先到Web页面准备注册、订单和消耗数据"
+            ugc_button_label = "请先到上传与数据连接补齐Web数据"
         elif not ugc_app_reg_files or not ugc_app_order_files:
             ugc_button_label = "请上传APP注册和订单数据"
         elif not all((ugc_app_google_use_api or ugc_app_google_files, ugc_app_asa_files)):
-            ugc_button_label = "请先到App页面准备Google和ASA消耗"
+            ugc_button_label = "请先到上传与数据连接补齐App消耗"
         else:
             ugc_button_label = "✦ 生成UGC数据监控表"
         ugc_generate = st.button(
@@ -612,12 +605,11 @@ if active_port == "app":
         <header class="topbar">
           <div class="eyebrow">APP Report Workbench</div>
           <h1>APP数据自动化</h1>
-          <p>上传Google、ASA消耗和AppsFlyer营收，自动生成APP投放营收表</p>
+          <p>确认已共享的数据，补充App专属目标后直接生成报表</p>
           <div class="steps">
-            <div class="step done"><b>✓</b>选择周期</div><div class="step-line"></div>
-            <div class="step on"><b>02</b>上传数据</div><div class="step-line"></div>
-            <div class="step"><b>03</b>确认目标</div><div class="step-line"></div>
-            <div class="step"><b>04</b>生成表格</div>
+            <div class="step done"><b>✓</b>数据准备</div><div class="step-line"></div>
+            <div class="step on"><b>02</b>确认目标</div><div class="step-line"></div>
+            <div class="step"><b>03</b>生成表格</div>
           </div>
         </header>
         """,
@@ -639,113 +631,23 @@ if active_port == "app":
         )
 
     with app_main:
-        with st.container(border=True, key="app_upload_box"):
-            app_upload_header = st.empty()
-            app_u1, app_u2 = st.columns(2)
-            with app_u1:
-                app_asa_upload_version = st.session_state.get("app_asa_upload_version", 0)
-                app_asa_files = st.file_uploader(
-                    "**ASA消耗**  \nASA 分地区分天消耗",
-                    type=["xlsx", "xlsm", "csv"], accept_multiple_files=True,
-                    key=f"app_asa_files_{app_asa_upload_version}",
-                )
-                if app_asa_files:
-                    st.session_state["shared_app_asa_files"] = list(app_asa_files)
-                    persist_workspace()
-                else:
-                    app_asa_files = st.session_state.get("shared_app_asa_files", [])
-                st.markdown(app_upload_status(app_asa_files), unsafe_allow_html=True)
-                if app_asa_files and st.button(
-                    "删除已上传的ASA文件", key="clear_app_asa", use_container_width=True
-                ):
-                    st.session_state["app_asa_upload_version"] = app_asa_upload_version + 1
-                    invalidate_app_outputs()
-                    st.session_state.pop("shared_app_asa_files", None)
-                    persist_workspace()
-                    st.rerun()
-            with app_u2:
-                app_appsflyer_upload_version = st.session_state.get("app_appsflyer_upload_version", 0)
-                app_appsflyer_files = st.file_uploader(
-                    "**AppsFlyer营收**  \n分天、地区与媒体渠道营收",
-                    type=["xlsx", "xlsm", "csv"], accept_multiple_files=True,
-                    key=f"app_appsflyer_files_{app_appsflyer_upload_version}",
-                )
-                if app_appsflyer_files:
-                    st.session_state["shared_app_appsflyer_files"] = list(app_appsflyer_files)
-                    persist_workspace()
-                else:
-                    app_appsflyer_files = st.session_state.get("shared_app_appsflyer_files", [])
-                st.markdown(app_upload_status(app_appsflyer_files), unsafe_allow_html=True)
-                if app_appsflyer_files and st.button(
-                    "删除AppsFlyer营收文件", key="clear_app_appsflyer", use_container_width=True
-                ):
-                    st.session_state["app_appsflyer_upload_version"] = app_appsflyer_upload_version + 1
-                    invalidate_app_outputs()
-                    st.session_state.pop("shared_app_appsflyer_files", None)
-                    persist_workspace()
-                    st.rerun()
-            app_u3, app_u4 = st.columns(2)
-            with app_u3:
-                with st.container(border=True, key="app_google_cost_card"):
-                    app_google_api_ready = google_ads_configured(st.secrets)
-                    app_google_badge = "api-badge" if app_google_api_ready else "api-badge off"
-                    app_google_badge_text = "已连接" if app_google_api_ready else "未配置"
-                    st.markdown(
-                        f'<div class="cost-card-head"><h3>Google 消耗</h3>'
-                        f'<span class="{app_google_badge}">{app_google_badge_text}</span></div>'
-                        '<div class="api-identity"><span>Google Ads API</span><b>YM-AiPPT-APP-0508</b></div>',
-                        unsafe_allow_html=True,
-                    )
-                    app_google_source = (
-                        st.radio(
-                            "Google数据来源",
-                            ["API自动读取", "上传文件备用"],
-                            format_func=lambda value: "API 自动读取" if value == "API自动读取" else "手动上传文件",
-                            horizontal=True,
-                            key="app_google_source",
-                            label_visibility="collapsed",
-                        )
-                        if app_google_api_ready else "上传文件备用"
-                    )
-                    app_google_use_api = app_google_api_ready and app_google_source == "API自动读取"
-                    if app_google_use_api:
-                        app_google_files = st.session_state.get("shared_app_google_files", [])
-                        st.markdown('<div class="api-read-status">按报告周期自动获取</div>', unsafe_allow_html=True)
-                    else:
-                        app_google_upload_version = st.session_state.get("app_google_upload_version", 0)
-                        app_google_files = st.file_uploader(
-                            "**Google消耗**  \nGoogle Ads 投放消耗",
-                            type=["xlsx", "xlsm", "csv"], accept_multiple_files=True,
-                            key=f"app_google_files_{app_google_upload_version}",
-                        )
-                        if app_google_files:
-                            st.session_state["shared_app_google_files"] = list(app_google_files)
-                            persist_workspace()
-                        else:
-                            app_google_files = st.session_state.get("shared_app_google_files", [])
-                        st.markdown(app_upload_status(app_google_files), unsafe_allow_html=True)
-                        if app_google_files and st.button(
-                            "删除已上传的Google文件", key="clear_app_google", use_container_width=True
-                        ):
-                            st.session_state["app_google_upload_version"] = app_google_upload_version + 1
-                            invalidate_app_outputs()
-                            st.session_state.pop("shared_app_google_files", None)
-                            persist_workspace()
-                            st.rerun()
-            app_uploaded_count = sum(
-                bool(value)
-                for value in (
-                    app_google_use_api or app_google_files,
-                    app_asa_files, app_appsflyer_files,
-                )
-            )
-            shared_order_files = st.session_state.get("shared_order_files", [])
-            app_upload_header.markdown(
-                f'<div class="upload-head"><div><h2>上传APP数据</h2>'
-                f'<p>消耗按平台汇总，收入按AppsFlyer媒体渠道与地区汇总</p></div>'
-                f'<div class="upload-count">{app_uploaded_count} / 3 已完成</div></div>',
-                unsafe_allow_html=True,
-            )
+        app_asa_files = st.session_state.get("shared_app_asa_files", [])
+        app_appsflyer_files = st.session_state.get("shared_app_appsflyer_files", [])
+        app_google_files = st.session_state.get("shared_app_google_files", [])
+        app_google_api_ready = google_ads_configured(st.secrets)
+        app_google_use_api = app_google_api_ready and st.session_state.get("app_google_source", "API自动读取") == "API自动读取"
+        shared_order_files = st.session_state.get("shared_order_files", [])
+        app_source_rows = pd.DataFrame([
+            {"已准备数据": "Google 消耗", "状态": "✓ API自动读取" if app_google_use_api else ("✓ 手动备用文件" if app_google_files else "缺失")},
+            {"已准备数据": "ASA 消耗", "状态": "✓ 已就绪" if app_asa_files else "缺失"},
+            {"已准备数据": "AppsFlyer营收", "状态": "✓ 已就绪" if app_appsflyer_files else "缺失"},
+        ])
+        with st.container(border=True, key="app_source_status"):
+            st.markdown('<div class="upload-head"><div><h2>已准备的数据</h2><p>以下数据来自“上传与数据连接”，本页不再重复上传。</p></div></div>', unsafe_allow_html=True)
+            st.dataframe(app_source_rows, hide_index=True, use_container_width=True)
+            if st.button("去补充或替换数据", key="app_go_data", use_container_width=True):
+                st.query_params["port"] = "data"
+                st.rerun()
 
         st.markdown(
             '<div class="section-label">02 APP月度目标</div>'
@@ -871,7 +773,7 @@ if active_port == "app":
             app_asa_files, app_appsflyer_files,
         )) and app_start <= app_end
         if not shared_order_files:
-            app_button_label = "请先到Web页面上传订单数据"
+            app_button_label = "请先到上传与数据连接补齐订单数据"
         elif not all((app_google_use_api or app_google_files, app_asa_files)):
             app_button_label = "请先准备Google和ASA消耗"
         elif not app_appsflyer_files:
@@ -980,7 +882,7 @@ if active_port == "app":
     )
     st.stop()
 
-st.markdown("""<header class="topbar"><div class="eyebrow">WEB Report Workbench</div><h1>WEB数据自动化</h1><p>上传WEB数据，自动完成校验、归因计算并生成五份可编辑周报</p><div class="steps"><div class="step done"><b>✓</b>选择周期</div><div class="step-line"></div><div class="step on"><b>02</b>上传数据</div><div class="step-line"></div><div class="step"><b>03</b>补充信息</div><div class="step-line"></div><div class="step"><b>04</b>生成报告</div></div></header><div id="upload-data"></div>""", unsafe_allow_html=True)
+st.markdown("""<header class="topbar"><div class="eyebrow">WEB Report Workbench</div><h1>WEB数据自动化</h1><p>确认已共享的数据，补充Web专属指标后直接生成周报</p><div class="steps"><div class="step done"><b>✓</b>数据准备</div><div class="step-line"></div><div class="step on"><b>02</b>补充指标</div><div class="step-line"></div><div class="step"><b>03</b>生成报告</div></div></header><div id="upload-data"></div>""", unsafe_allow_html=True)
 
 today = date.today()
 default_end = today - timedelta(days=1)
@@ -1000,139 +902,27 @@ def upload_status(files):
     )
 
 with main_col:
-    upload_container = st.container(border=True, key="web_upload_box")
-    with upload_container:
-        upload_header = st.empty()
-        u1, u2 = st.columns(2)
-        with u1:
-            reg_upload_version = st.session_state.get("reg_upload_version", 0)
-            reg_files = st.file_uploader(
-                "**注册数据**  \n用户注册与渠道来源", type=["xlsx","xlsm","csv"],
-                accept_multiple_files=True, key=f"reg_files_{reg_upload_version}"
-            )
-            if reg_files:
-                st.session_state["shared_registration_files"] = list(reg_files)
-                persist_workspace()
-            else:
-                reg_files = st.session_state.get("shared_registration_files", [])
-            st.markdown(upload_status(reg_files), unsafe_allow_html=True)
-            if reg_files and st.button("删除已上传的注册文件", key="clear_reg_files", use_container_width=True):
-                st.session_state["reg_upload_version"] = reg_upload_version + 1
-                invalidate_web_outputs()
-                st.session_state.pop("shared_registration_files", None)
-                st.session_state.pop("ugc_report", None)
-                persist_workspace()
-                st.rerun()
-            with st.container(border=True, key="web_google_cost_card"):
-                web_google_api_ready = google_ads_configured(st.secrets)
-                google_badge = "api-badge" if web_google_api_ready else "api-badge off"
-                google_badge_text = "已连接" if web_google_api_ready else "未配置"
-                st.markdown(
-                    f'<div class="cost-card-head"><h3>Google 消耗</h3>'
-                    f'<span class="{google_badge}">{google_badge_text}</span></div>'
-                    '<div class="api-identity"><span>Google Ads API</span><b>YM-AIppt-0124</b></div>',
-                    unsafe_allow_html=True,
-                )
-                web_google_source = (
-                    st.radio(
-                        "Google数据来源",
-                        ["API自动读取", "上传文件备用"],
-                        format_func=lambda value: "API 自动读取" if value == "API自动读取" else "手动上传文件",
-                        horizontal=True,
-                        key="web_google_source",
-                        label_visibility="collapsed",
-                    )
-                    if web_google_api_ready else "上传文件备用"
-                )
-                web_google_use_api = web_google_api_ready and web_google_source == "API自动读取"
-                if web_google_use_api:
-                    google_files = st.session_state.get("shared_web_google_files", [])
-                    st.markdown('<div class="api-read-status">按报告周期自动获取</div>', unsafe_allow_html=True)
-                else:
-                    google_upload_version = st.session_state.get("google_upload_version", 0)
-                    google_files = st.file_uploader(
-                        "**Google消耗**  \nGoogle Ads 投放消耗", type=["xlsx","xlsm","csv"],
-                        accept_multiple_files=True, key=f"google_files_{google_upload_version}"
-                    )
-                    if google_files:
-                        st.session_state["shared_web_google_files"] = list(google_files)
-                        persist_workspace()
-                    else:
-                        google_files = st.session_state.get("shared_web_google_files", [])
-                    st.markdown(upload_status(google_files), unsafe_allow_html=True)
-                    if google_files and st.button("删除已上传的Google文件", key="clear_google_files", use_container_width=True):
-                        st.session_state["google_upload_version"] = google_upload_version + 1
-                        invalidate_web_outputs()
-                        st.session_state.pop("shared_web_google_files", None)
-                        persist_workspace()
-                        st.rerun()
-        with u2:
-            order_upload_version = st.session_state.get("order_upload_version", 0)
-            order_files = st.file_uploader(
-                "**订单数据**  \n订单及收入相关数据", type=["xlsx","xlsm","csv"],
-                accept_multiple_files=True, key=f"order_files_{order_upload_version}"
-            )
-            if order_files:
-                st.session_state["shared_order_files"] = list(order_files)
-                persist_workspace()
-            else:
-                order_files = st.session_state.get("shared_order_files", [])
-            st.markdown(upload_status(order_files), unsafe_allow_html=True)
-            if order_files and st.button("删除已上传的订单文件", key="clear_order_files", use_container_width=True):
-                st.session_state["order_upload_version"] = order_upload_version + 1
-                invalidate_web_outputs()
-                st.session_state.pop("shared_order_files", None)
-                st.session_state.pop("ugc_report", None)
-                persist_workspace()
-                st.rerun()
-            with st.container(border=True, key="web_bing_cost_card"):
-                web_bing_api_ready = bing_ads_configured(st.secrets)
-                bing_badge = "api-badge" if web_bing_api_ready else "api-badge off"
-                bing_badge_text = "已连接" if web_bing_api_ready else "未配置"
-                st.markdown(
-                    f'<div class="cost-card-head"><h3>Bing 消耗</h3>'
-                    f'<span class="{bing_badge}">{bing_badge_text}</span></div>'
-                    '<div class="api-identity"><span>Microsoft Advertising API</span><b>用户位置报告</b></div>',
-                    unsafe_allow_html=True,
-                )
-                web_bing_source = (
-                    st.radio(
-                        "Bing数据来源",
-                        ["API自动读取", "上传文件备用"],
-                        format_func=lambda value: "API 自动读取" if value == "API自动读取" else "手动上传文件",
-                        horizontal=True,
-                        key="web_bing_source",
-                        label_visibility="collapsed",
-                    )
-                    if web_bing_api_ready else "上传文件备用"
-                )
-                web_bing_use_api = web_bing_api_ready and web_bing_source == "API自动读取"
-                if web_bing_use_api:
-                    bing_files = st.session_state.get("shared_web_bing_files", [])
-                    st.markdown('<div class="api-read-status">按报告周期自动获取</div>', unsafe_allow_html=True)
-                else:
-                    bing_upload_version = st.session_state.get("bing_upload_version", 0)
-                    bing_files = st.file_uploader(
-                        "**Bing消耗**  \nMicrosoft Advertising 投放消耗", type=["xlsx","xlsm","csv"],
-                        accept_multiple_files=True, key=f"bing_files_{bing_upload_version}"
-                    )
-                    if bing_files:
-                        st.session_state["shared_web_bing_files"] = list(bing_files)
-                        persist_workspace()
-                    else:
-                        bing_files = st.session_state.get("shared_web_bing_files", [])
-                    st.markdown(upload_status(bing_files), unsafe_allow_html=True)
-                    if bing_files and st.button("删除已上传的Bing文件", key="clear_bing_files", use_container_width=True):
-                        st.session_state["bing_upload_version"] = bing_upload_version + 1
-                        invalidate_web_outputs()
-                        st.session_state.pop("shared_web_bing_files", None)
-                        persist_workspace()
-                        st.rerun()
-        uploaded_count = sum(bool(x) for x in [
-            reg_files, order_files, web_google_use_api or google_files,
-            web_bing_use_api or bing_files, web_appsflyer_files,
-        ])
-        upload_header.markdown(f'<div class="upload-head"><div><h2>上传源数据</h2><p>准备5类数据，系统将自动完成格式检查和数据预处理</p></div><div class="upload-count">{uploaded_count} / 5 已完成</div></div>', unsafe_allow_html=True)
+    reg_files = st.session_state.get("shared_registration_files", [])
+    order_files = st.session_state.get("shared_order_files", [])
+    google_files = st.session_state.get("shared_web_google_files", [])
+    bing_files = st.session_state.get("shared_web_bing_files", [])
+    web_google_api_ready = google_ads_configured(st.secrets)
+    web_bing_api_ready = bing_ads_configured(st.secrets)
+    web_google_use_api = web_google_api_ready and st.session_state.get("web_google_source", "API自动读取") == "API自动读取"
+    web_bing_use_api = web_bing_api_ready and st.session_state.get("web_bing_source", "API自动读取") == "API自动读取"
+    web_source_rows = pd.DataFrame([
+        {"已准备数据": "注册数据", "状态": "✓ 已就绪" if reg_files else "缺失"},
+        {"已准备数据": "订单数据", "状态": "✓ 已就绪" if order_files else "缺失"},
+        {"已准备数据": "Google 消耗", "状态": "✓ API自动读取" if web_google_use_api else ("✓ 手动备用文件" if google_files else "缺失")},
+        {"已准备数据": "Bing 消耗", "状态": "✓ API自动读取" if web_bing_use_api else ("✓ 手动备用文件" if bing_files else "缺失")},
+        {"已准备数据": "AppsFlyer营收", "状态": "✓ 已就绪" if web_appsflyer_files else "缺失"},
+    ])
+    with st.container(border=True, key="web_source_status"):
+        st.markdown('<div class="upload-head"><div><h2>已准备的数据</h2><p>以下数据来自“上传与数据连接”，本页不再重复上传。</p></div></div>', unsafe_allow_html=True)
+        st.dataframe(web_source_rows, hide_index=True, use_container_width=True)
+        if st.button("去补充或替换数据", key="web_go_data", use_container_width=True):
+            st.query_params["port"] = "data"
+            st.rerun()
 
     st.markdown('<div id="manual-data"></div><div class="section-label">02 补充手动数据</div><div class="section-note">对应全渠道周报中的成本、流量和退款；没有数据时可保持为0。</div>', unsafe_allow_html=True)
     with st.expander("展开填写成本、流量和退款", expanded=False):
