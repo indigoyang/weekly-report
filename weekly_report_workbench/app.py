@@ -637,6 +637,11 @@ if active_port == "app":
         app_google_api_ready = google_ads_configured(st.secrets)
         app_google_use_api = app_google_api_ready and st.session_state.get("app_google_source", "API自动读取") == "API自动读取"
         shared_order_files = st.session_state.get("shared_order_files", [])
+        app_uploaded_count = sum(bool(value) for value in (
+            app_google_use_api or app_google_files,
+            app_asa_files,
+            app_appsflyer_files,
+        ))
         app_source_rows = pd.DataFrame([
             {"已准备数据": "Google 消耗", "状态": "✓ API自动读取" if app_google_use_api else ("✓ 手动备用文件" if app_google_files else "缺失")},
             {"已准备数据": "ASA 消耗", "状态": "✓ 已就绪" if app_asa_files else "缺失"},
@@ -910,6 +915,13 @@ with main_col:
     web_bing_api_ready = bing_ads_configured(st.secrets)
     web_google_use_api = web_google_api_ready and st.session_state.get("web_google_source", "API自动读取") == "API自动读取"
     web_bing_use_api = web_bing_api_ready and st.session_state.get("web_bing_source", "API自动读取") == "API自动读取"
+    uploaded_count = sum(bool(value) for value in (
+        reg_files,
+        order_files,
+        web_google_use_api or google_files,
+        web_bing_use_api or bing_files,
+        web_appsflyer_files,
+    ))
     web_source_rows = pd.DataFrame([
         {"已准备数据": "注册数据", "状态": "✓ 已就绪" if reg_files else "缺失"},
         {"已准备数据": "订单数据", "状态": "✓ 已就绪" if order_files else "缺失"},
