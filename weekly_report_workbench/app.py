@@ -13,7 +13,7 @@ from total_report_engine import generate_total_report
 from ugc_report_engine import generate_ugc_report
 from brief_report_engine import generate_monday_friday_brief
 from v3_report_engine import generate_v3_reports
-from google_ads_api import fetch_google_costs, google_ads_configured
+from google_ads_api import fetch_google_costs, fetch_google_campaign_performance, google_ads_configured
 from bing_ads_api import fetch_bing_costs, bing_ads_configured
 from target_store import (
     ALL_CHANNEL_TARGET_METRICS,
@@ -420,7 +420,7 @@ if active_port == "brief":
     st.markdown(
         """<header class="topbar"><div class="eyebrow">MONDAY / FRIDAY DATA BRIEF</div>
         <h1>周一/周五数据简报</h1>
-        <p>对比等长的本期与对比期，生成一个包含 Web SEM 分地区和 App SEM 的 Excel。</p>
+        <p>对比等长的本期与对比期，生成包含 Web SEM、App SEM 及 Google前后台ROI的 Excel。</p>
         <div class="steps"><div class="step done"><b>✓</b>数据准备</div>
         <div class="step-line"></div><div class="step on"><b>02</b>选择对比期</div>
         <div class="step-line"></div><div class="step"><b>03</b>生成简报</div></div></header>""",
@@ -465,6 +465,7 @@ if active_port == "brief":
             {"数据": "Web Bing", "状态": "✓ API" if brief_web_bing_api else ("✓ 文件" if brief_web_bing_files else "缺失")},
             {"数据": "App Google", "状态": "✓ API" if brief_app_google_api else ("✓ 文件" if brief_app_google_files else "缺失")},
             {"数据": "AppsFlyer营收", "状态": "✓ 已就绪" if brief_appsflyer_files else "缺失"},
+            {"数据": "Google前台ROI", "状态": "✓ API转化价值÷费用" if brief_google_ready else "需手动文件包含转化价值"},
         ])
         with st.container(border=True, key="brief_source_status"):
             st.markdown('<div class="upload-head"><div><h2>已准备的数据</h2><p>复用“上传与数据连接”中的数据。</p></div></div>', unsafe_allow_html=True)
@@ -490,6 +491,7 @@ if active_port == "brief":
             '<div class="panel"><div class="panel-title">本次输出<span>1个Excel</span></div>'
             '<div class="task"><b>Web SEM分地区</b><span>Sheet 1</span></div>'
             '<div class="task"><b>App SEM</b><span>Sheet 2</span></div>'
+            '<div class="task"><b>Google前后台ROI</b><span>Sheet 3</span></div>'
             '<div class="task"><b>MTD</b><span>不生成</span></div></div>',
             unsafe_allow_html=True,
         )
@@ -513,9 +515,13 @@ if active_port == "brief":
                     brief_web_bing = fetch_bing_costs(st.secrets, query_start, query_end) if brief_web_bing_api else read_uploads(brief_web_bing_files)
                     brief_app_google = fetch_google_costs(st.secrets, "app", query_start, query_end) if brief_app_google_api else read_app_uploads(brief_app_google_files, "google")
                     brief_appsflyer = read_app_uploads(brief_appsflyer_files, "appsflyer")
+                    brief_google_campaign = (
+                        fetch_google_campaign_performance(st.secrets, "web", brief_current_start, brief_current_end)
+                        if brief_google_ready else read_uploads(brief_web_google_files)
+                    )
                     filename, content, warnings = generate_monday_friday_brief(
                         brief_reg, brief_orders, brief_web_google, brief_web_bing,
-                        brief_app_google, brief_appsflyer,
+                        brief_app_google, brief_appsflyer, brief_google_campaign,
                         brief_current_start, brief_current_end,
                         brief_previous_start, brief_previous_end,
                     )
@@ -534,7 +540,7 @@ if active_port == "brief":
                 st.warning(warning)
             st.markdown(
                 f'<div class="download-card"><b>周一/周五数据简报</b><br>'
-                f'<span>Excel · Web SEM分地区 + App SEM · {len(content)/1024:.1f} KB</span></div>',
+                f'<span>Excel · Web SEM分地区 + App SEM + Google前后台ROI · {len(content)/1024:.1f} KB</span></div>',
                 unsafe_allow_html=True,
             )
             st.download_button(

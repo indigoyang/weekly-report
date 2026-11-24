@@ -176,3 +176,52 @@ def fetch_google_costs(
         records,
         columns=["天", "地理位置", "广告系列", "费用", "位置类型", "__来源文件"],
     )
+
+
+def fetch_google_campaign_performance(
+    secrets,
+    account: str,
+    start: date,
+    end: date,
+) -> pd.DataFrame:
+    """读取广告系列/广告单元粒度的消耗与转化价值，用于前后台ROI核对。"""
+    if start > end:
+        raise ValueError("Google Ads API开始日期不能晚于结束日期。")
+    settings = google_ads_settings(secrets)
+    if not google_ads_configured(secrets):
+        raise GoogleAdsAPIError("尚未配置Google Ads API的Streamlit Secrets。")
+    account_key = f"{account}_customer_id"
+    if account_key not in settings:
+        raise GoogleAdsAPIError(f"Google Ads API缺少配置：{account_key}")
+    customer_id = _digits(settings[account_key])
+    manager_id = _digits(settings["manager_customer_id"])
+    headers = {
+        "Authorization": f"Bearer {_access_token(settings)}",
+        "Content-Type": "application/json",
+        "login-customer-id": manager_id,
+    }
+    query = f"""
+        SELECT segments.date, campaign.name, ad_group.name,
+               metrics.cost_micros, metrics.conversions_value
+        FROM ad_group
+        WHERE segments.date BETWEEN '{start:%Y-%m-%d}' AND '{end:%Y-%m-%d}'
+          AND campaign.status != 'REMOVED'
+          AND ad_group.status != 'REMOVED'
+    """
+    raw_rows = _search_stream(customer_id, query, headers)
+    records = []
+    for row in raw_rows:
+        cost = float(row.get("metrics", {}).get("costMicros", 0) or 0) / 1_000_000
+        conversion_value = float(row.get("metrics", {}).get("conversionsValue", 0) or 0)
+        records.append({
+            "天": row.get("segments", {}).get("date"),
+            "广告系列": row.get("campaign", {}).get("name", ""),
+            "广告单元": row.get("adGroup", {}).get("name", ""),
+            "费用": cost,
+            "转化价值": conversion_value,
+            "Google前台ROI": conversion_value / cost if cost else 0.0,
+            "__来源文件": f"Google Ads API · {customer_id}",
+        })
+    return pd.DataFrame(records, columns=[
+        "天", "广告系列", "广告单元", "费用", "转化价值", "Google前台ROI", "__来源文件",
+    ])
