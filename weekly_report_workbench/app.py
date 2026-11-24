@@ -11,6 +11,7 @@ from report_engine import read_uploads
 from app_report_engine import generate_app_report, read_app_uploads, appsflyer_natural_metrics
 from total_report_engine import generate_total_report
 from ugc_report_engine import generate_ugc_report
+from brief_report_engine import generate_monday_friday_brief
 from v3_report_engine import generate_v3_reports
 from google_ads_api import fetch_google_costs, google_ads_configured
 from bing_ads_api import fetch_bing_costs, bing_ads_configured
@@ -42,6 +43,8 @@ if st.session_state.get("report_schema_version") != REPORT_SCHEMA_VERSION:
     st.session_state.pop("app_total_summary", None)
     st.session_state.pop("total_report", None)
     st.session_state.pop("ugc_report", None)
+    st.session_state.pop("brief_report", None)
+    st.session_state.pop("brief_report_warnings", None)
     st.session_state["report_schema_version"] = REPORT_SCHEMA_VERSION
 
 
@@ -80,7 +83,7 @@ def invalidate_web_outputs():
     st.session_state.pop("ugc_report", None)
 admin_mode = str(st.query_params.get("admin", "")) == "1"
 active_port = str(st.query_params.get("port", "data")).lower()
-if active_port not in {"data", "web", "app", "ugc"}:
+if active_port not in {"data", "brief", "web", "app", "ugc"}:
     active_port = "data"
 workspace_id = initialize_workspace(st.query_params, st.session_state)
 
@@ -254,6 +257,9 @@ with st.sidebar:
         st.query_params["port"] = "data"
         st.rerun()
     st.markdown('<div class="sidebar-nav-group report">报表生成</div>', unsafe_allow_html=True)
+    if st.button("📈  周一/周五数据简报", key="port_brief", help="生成Web与App SEM对比简报", use_container_width=True):
+        st.query_params["port"] = "brief"
+        st.rerun()
     if st.button("📱  App 周报", key="port_app", help="进入App周报生成", use_container_width=True):
         st.query_params["port"] = "app"
         st.rerun()
@@ -265,7 +271,7 @@ with st.sidebar:
         st.rerun()
     st.caption("上传文件和手动数据临时保存24小时；刷新后可恢复。")
 
-active_button_key = {"data": "port_data", "web": "port_web", "app": "port_app", "ugc": "port_ugc"}[active_port]
+active_button_key = {"data": "port_data", "brief": "port_brief", "web": "port_web", "app": "port_app", "ugc": "port_ugc"}[active_port]
 st.markdown(
     f"<style>.st-key-{active_button_key} button{{background:#4655dc!important;"
     "color:#fff!important;border-color:#4655dc!important;box-shadow:none!important;"
@@ -408,6 +414,134 @@ if active_port == "data":
         unsafe_allow_html=True,
     )
     st.info("数据准备完成后，请从左侧进入对应报表页面补充目标或成本，并生成报表。")
+    st.stop()
+
+if active_port == "brief":
+    st.markdown(
+        """<header class="topbar"><div class="eyebrow">MONDAY / FRIDAY DATA BRIEF</div>
+        <h1>周一/周五数据简报</h1>
+        <p>对比等长的本期与对比期，生成一个包含 Web SEM 分地区和 App SEM 的 Excel。</p>
+        <div class="steps"><div class="step done"><b>✓</b>数据准备</div>
+        <div class="step-line"></div><div class="step on"><b>02</b>选择对比期</div>
+        <div class="step-line"></div><div class="step"><b>03</b>生成简报</div></div></header>""",
+        unsafe_allow_html=True,
+    )
+    today = date.today()
+    brief_end_default = st.session_state.get("report_end", today - timedelta(days=1))
+    brief_start_default = st.session_state.get("report_start", brief_end_default - timedelta(days=6))
+    default_days = (brief_end_default - brief_start_default).days + 1
+    brief_previous_end_default = brief_start_default - timedelta(days=1)
+    brief_previous_start_default = brief_previous_end_default - timedelta(days=default_days - 1)
+
+    brief_main, brief_side = st.columns([3.15, 1], gap="large")
+    with brief_main:
+        with st.container(border=True, key="brief_period_box"):
+            st.markdown('<div class="upload-head"><div><h2>对比时间段</h2><p>两个时间段必须天数相同，不计算MTD。</p></div></div>', unsafe_allow_html=True)
+            current_col, previous_col = st.columns(2)
+            with current_col:
+                st.markdown("**本期**")
+                brief_current_start = st.date_input("本期开始", brief_start_default, key="brief_current_start")
+                brief_current_end = st.date_input("本期结束", brief_end_default, key="brief_current_end")
+            with previous_col:
+                st.markdown("**对比期**")
+                brief_previous_start = st.date_input("对比期开始", brief_previous_start_default, key="brief_previous_start")
+                brief_previous_end = st.date_input("对比期结束", brief_previous_end_default, key="brief_previous_end")
+
+        brief_reg_files = st.session_state.get("shared_registration_files", [])
+        brief_order_files = st.session_state.get("shared_order_files", [])
+        brief_web_google_files = st.session_state.get("shared_web_google_files", [])
+        brief_web_bing_files = st.session_state.get("shared_web_bing_files", [])
+        brief_app_google_files = st.session_state.get("shared_app_google_files", [])
+        brief_appsflyer_files = st.session_state.get("shared_app_appsflyer_files", [])
+        brief_google_ready = google_ads_configured(st.secrets)
+        brief_bing_ready = bing_ads_configured(st.secrets)
+        brief_web_google_api = brief_google_ready and st.session_state.get("web_google_source", "API自动读取") == "API自动读取"
+        brief_web_bing_api = brief_bing_ready and st.session_state.get("web_bing_source", "API自动读取") == "API自动读取"
+        brief_app_google_api = brief_google_ready and st.session_state.get("app_google_source", "API自动读取") == "API自动读取"
+        brief_source_rows = pd.DataFrame([
+            {"数据": "Web注册", "状态": "✓ 已就绪" if brief_reg_files else "缺失"},
+            {"数据": "Web订单", "状态": "✓ 已就绪" if brief_order_files else "缺失"},
+            {"数据": "Web Google", "状态": "✓ API" if brief_web_google_api else ("✓ 文件" if brief_web_google_files else "缺失")},
+            {"数据": "Web Bing", "状态": "✓ API" if brief_web_bing_api else ("✓ 文件" if brief_web_bing_files else "缺失")},
+            {"数据": "App Google", "状态": "✓ API" if brief_app_google_api else ("✓ 文件" if brief_app_google_files else "缺失")},
+            {"数据": "AppsFlyer营收", "状态": "✓ 已就绪" if brief_appsflyer_files else "缺失"},
+        ])
+        with st.container(border=True, key="brief_source_status"):
+            st.markdown('<div class="upload-head"><div><h2>已准备的数据</h2><p>复用“上传与数据连接”中的数据。</p></div></div>', unsafe_allow_html=True)
+            st.dataframe(brief_source_rows, hide_index=True, use_container_width=True)
+            if st.button("去补充或替换数据", key="brief_go_data", use_container_width=True):
+                st.query_params["port"] = "data"
+                st.rerun()
+
+    brief_periods_valid = (
+        brief_current_start <= brief_current_end
+        and brief_previous_start <= brief_previous_end
+        and (brief_current_end - brief_current_start).days == (brief_previous_end - brief_previous_start).days
+    )
+    brief_ready = all((
+        brief_reg_files, brief_order_files,
+        brief_web_google_api or brief_web_google_files,
+        brief_web_bing_api or brief_web_bing_files,
+        brief_app_google_api or brief_app_google_files,
+        brief_appsflyer_files, brief_periods_valid,
+    ))
+    with brief_side:
+        st.markdown(
+            '<div class="panel"><div class="panel-title">本次输出<span>1个Excel</span></div>'
+            '<div class="task"><b>Web SEM分地区</b><span>Sheet 1</span></div>'
+            '<div class="task"><b>App SEM</b><span>Sheet 2</span></div>'
+            '<div class="task"><b>MTD</b><span>不生成</span></div></div>',
+            unsafe_allow_html=True,
+        )
+        if not brief_periods_valid:
+            st.error("本期和对比期需要保持相同天数。")
+        brief_generate = st.button(
+            "✦ 生成周一/周五数据简报",
+            type="primary", disabled=not brief_ready,
+            use_container_width=True, key="brief_generate",
+        )
+
+    if brief_generate:
+        try:
+            with brief_main:
+                with st.status("正在生成两个Sheet……", expanded=True) as status:
+                    query_start = min(brief_previous_start, brief_current_start)
+                    query_end = max(brief_previous_end, brief_current_end)
+                    brief_reg = read_uploads(brief_reg_files)
+                    brief_orders = read_uploads(brief_order_files)
+                    brief_web_google = fetch_google_costs(st.secrets, "web", query_start, query_end) if brief_web_google_api else read_uploads(brief_web_google_files)
+                    brief_web_bing = fetch_bing_costs(st.secrets, query_start, query_end) if brief_web_bing_api else read_uploads(brief_web_bing_files)
+                    brief_app_google = fetch_google_costs(st.secrets, "app", query_start, query_end) if brief_app_google_api else read_app_uploads(brief_app_google_files, "google")
+                    brief_appsflyer = read_app_uploads(brief_appsflyer_files, "appsflyer")
+                    filename, content, warnings = generate_monday_friday_brief(
+                        brief_reg, brief_orders, brief_web_google, brief_web_bing,
+                        brief_app_google, brief_appsflyer,
+                        brief_current_start, brief_current_end,
+                        brief_previous_start, brief_previous_end,
+                    )
+                    st.session_state["brief_report"] = (filename, content)
+                    st.session_state["brief_report_warnings"] = warnings
+                    persist_workspace()
+                    status.update(label="数据简报已生成", state="complete", expanded=False)
+        except Exception as exc:
+            with brief_main:
+                st.exception(exc)
+
+    if st.session_state.get("brief_report"):
+        filename, content = st.session_state["brief_report"]
+        with brief_main:
+            for warning in st.session_state.get("brief_report_warnings", []):
+                st.warning(warning)
+            st.markdown(
+                f'<div class="download-card"><b>周一/周五数据简报</b><br>'
+                f'<span>Excel · Web SEM分地区 + App SEM · {len(content)/1024:.1f} KB</span></div>',
+                unsafe_allow_html=True,
+            )
+            st.download_button(
+                "下载数据简报", content, filename,
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                type="primary", use_container_width=True, key="download_brief_report",
+            )
     st.stop()
 
 if active_port == "ugc":
