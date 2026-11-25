@@ -310,6 +310,17 @@ if active_port == "data":
         st.session_state["ugc_report_start"] = control_start
         st.session_state["ugc_report_end"] = control_end
 
+    def clear_global_upload(shared_key, widget_key):
+        """同时清除上传控件、共享文件、24小时缓存和依赖的旧报告。"""
+        st.session_state.pop(shared_key, None)
+        st.session_state.pop(widget_key, None)
+        invalidate_web_outputs()
+        invalidate_app_outputs()
+        st.session_state.pop("ugc_report", None)
+        st.session_state.pop("brief_report", None)
+        st.session_state.pop("brief_report_warnings", None)
+        persist_workspace()
+
     def global_upload(label, description, shared_key, widget_key):
         files = st.file_uploader(
             f"**{label}**  \n{description}", type=["xlsx", "xlsm", "csv"],
@@ -325,6 +336,14 @@ if active_port == "data":
             st.markdown(
                 f'<div class="file-status ok">✓ 已上传 {len(files)} 个文件<span>{names}</span></div>',
                 unsafe_allow_html=True,
+            )
+            st.button(
+                "删除已上传文件",
+                key=f"{widget_key}_delete",
+                help=f"删除全部{label}并允许重新上传",
+                on_click=clear_global_upload,
+                args=(shared_key, widget_key),
+                use_container_width=True,
             )
         return files
 
