@@ -184,6 +184,14 @@ def _google_period(google, start, end):
     return g[~mask]
 
 
+def _google_total_from_period(g):
+    """汇总已按周期和广告系列过滤后的 Google 原始消耗。"""
+    total_rows = g["地理位置"].fillna("").astype(str).eq("总计：地理位置")
+    if total_rows.any():
+        return float(g.loc[total_rows, "费用"].sum())
+    return float(g[~g["地理位置"].fillna("").astype(str).str.startswith("总计")]["费用"].sum())
+
+
 def _google_to_seo_adjustment(start, end):
     """Google 转 SEO 的周调整额按自然日均分，便于处理跨月 MTD。"""
     config = ACTIVE_RULES.get("cost_reclassification", {})
@@ -199,10 +207,7 @@ def _bing_period(bing, start, end):
 def _costs(google, bing, start, end):
     g = _google_period(google, start, end)
     b = _bing_period(bing, start, end)
-    g_total_rows = g["地理位置"].fillna("").astype(str).eq("总计：地理位置")
-    google_total = float(g.loc[g_total_rows, "费用"].sum())
-    if not g_total_rows.any():
-        google_total = float(g[~g["地理位置"].fillna("").astype(str).str.startswith("总计")]["费用"].sum())
+    google_total = _google_total_from_period(g)
     # 固定成本重分类：从 Google/SEM 成本转入 SEO 外链成本。
     # 同一笔金额会在生成全渠道报表时加回 SEO，因此总成本不变。
     google_to_seo = _google_to_seo_adjustment(start, end)
@@ -325,7 +330,10 @@ def _all_metrics(reg, orders, google, bing, dates, inputs):
         b_tc_names = {"Hong Kong SAR","Macao SAR","Taiwan"}
         b_en = float(b.loc[b["region"].isin(b_en_names), "cost"].sum()); b_tc = float(b.loc[b["region"].isin(b_tc_names), "cost"].sum())
         m[f"SEM消耗_英语_{label}"] = g_en+b_en; m[f"SEM消耗_繁中_{label}"] = g_tc+b_tc
-        m[f"SEM消耗_其他_{label}"] = gc+bc-g_en-b_en-g_tc-b_tc
+        # 地区ROI使用重分类前的真实广告消耗。Google转SEO的金额只影响
+        # 总表成本分类，不能全部落到“其他地区”并压低其ROI分母。
+        raw_google_total = _google_total_from_period(g)
+        m[f"SEM消耗_其他_{label}"] = raw_google_total+bc-g_en-b_en-g_tc-b_tc
         m[f"PC流量_{label}"] = inputs.get(f"pc_flow_{label}", 0); m[f"H5流量_{label}"] = inputs.get(f"h5_flow_{label}", 0)
         m[f"流量_{label}"] = m[f"PC流量_{label}"] + m[f"H5流量_{label}"]
     return m
