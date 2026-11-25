@@ -474,6 +474,11 @@ def _natural_report(dates, metrics, monthly_targets):
     # H列只用于模板维护时记录统计口径，最终下载表不展示。
     if ws.max_column >= 8:
         ws.delete_cols(8, ws.max_column - 7)
+    # 模板曾给表格下方的空白行也设置蓝色填充。对外文件只保留
+    # A1:G17 的正式报表区域，避免打开 Excel 时四周出现大片蓝底。
+    if ws.max_row > 17:
+        ws.delete_rows(18, ws.max_row - 17)
+    ws.print_area = "A1:G17"
     # Sheet2 的H列维护说明很长，源文件保存时把数据列和行高一并撑大；
     # 下载表移除说明列后恢复成适合周报阅读的一页宽版式。
     ws.column_dimensions["A"].width = 58
@@ -489,7 +494,7 @@ def _natural_report(dates, metrics, monthly_targets):
     ws.page_setup.fitToHeight = 0
     ws.sheet_properties.pageSetUpPr.fitToPage = True
     # 对外输出统一使用宋体11号，保留模板原有加粗、颜色等层级样式。
-    for row in ws.iter_rows(min_row=1, max_row=ws.max_row, min_col=1, max_col=7):
+    for row in ws.iter_rows(min_row=1, max_row=17, min_col=1, max_col=7):
         for cell in row:
             font = copy(cell.font)
             font.name = "宋体"
@@ -936,7 +941,10 @@ def generate_v3_reports(reg, orders, google, bing, mobile, start, end, inputs, t
             + {"本周": google_to_seo_tw, "上周": google_to_seo_lw, "MTD": google_to_seo_mtd}[label]
         )
         web_summary[label] = {
-            "new_user_revenue": float(all_metrics[f"D0营收_{label}"]),
+            # APP&WEB总表应与Web周报展示的“新用户总收入”保持一致：
+            # 注册转化周期=0，并按收入归因排除 Auto_Renewal。
+            # D0营收按注册日期汇总且包含 Auto_Renewal，不能用于两端合计。
+            "new_user_revenue": float(all_metrics[f"总营收_{label}"]),
             "all_user_non_subscription_revenue": float(all_metrics[f"除订阅总营收_{label}"]),
             "all_user_revenue": float(all_metrics[f"含订阅总营收_{label}"]),
             "web_cost": web_cost,
