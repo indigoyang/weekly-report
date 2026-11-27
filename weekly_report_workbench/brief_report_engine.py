@@ -188,7 +188,10 @@ def _source_mask(frame: pd.DataFrame, source_field: str | None, ad_groups: set[s
         return pd.Series(False, index=frame.index)
     source = frame[source_field].fillna("").astype(str).str.strip().str.casefold()
     accepted = {value.casefold() for value in ad_groups if value}
-    return source.isin(accepted)
+    if not accepted:
+        return pd.Series(False, index=frame.index)
+    pattern = "|".join(re.escape(keyword) for keyword in sorted(accepted))
+    return source.str.contains(pattern, regex=True)
 
 
 def _campaign_backend_rows(
@@ -196,20 +199,8 @@ def _campaign_backend_rows(
     start: date, end: date, new_only: bool,
 ):
     period_google = google_campaign[google_campaign["date"].dt.date.between(start, end)]
-    # 模板H列的“广告单元”是后台注册/订单归因键，不是Google API返回的ad_group列表。
-    reg_source = _first_column(reg, ("广告单元", "末次广告单元", "广告来源", "末次广告来源"))
-    order_source = _first_column(orders, ("广告单元", "末次广告单元", "广告来源", "末次广告来源"))
-    # 订单表如果没有归因字段，再按用户ID回连注册表。
-    if order_source is None and reg_source is not None:
-        reg_uid = _first_column(reg, ("用户ID", "用户id", "uid", "UID"))
-        order_uid = _first_column(orders, ("用户ID", "用户id", "uid", "UID"))
-        if reg_uid and order_uid:
-            reg_link = reg[[reg_uid, reg_source]].dropna(subset=[reg_uid]).copy()
-            reg_link["__uid_key"] = reg_link[reg_uid].astype(str).str.strip()
-            source_by_uid = reg_link.drop_duplicates("__uid_key", keep="last").set_index("__uid_key")[reg_source]
-            orders = orders.copy()
-            orders["__brief_ad_source"] = orders[order_uid].astype(str).str.strip().map(source_by_uid).fillna("")
-            order_source = "__brief_ad_source"
+    reg_source = _first_column(reg, ("末次落地页",))
+    order_source = _first_column(orders, ("末次落地页",))
     rows = []
     for campaign, ad_groups in campaign_mappings:
         campaign_google = period_google[
@@ -278,6 +269,7 @@ def _write_front_back_roi_sheet(ws, reg, orders, google_campaign, start: date, e
         )
         source_fields = (reg_source, order_source)
         ws.cell(header_row, 1, f"{start:%m.%d}-{end:%m.%d}({label})")
+        ws.cell(header_row, 8, "末次落地页关键词")
         for row, values in zip(range(first_row, last_row + 1), rows):
             for column, key in enumerate(headers[1:7], 2):
                 ws.cell(row, column, values[key])
@@ -343,9 +335,9 @@ def generate_monday_friday_brief(
         web_reg, web_orders, web_google_campaign, current_start, current_end,
     )
     if not reg_source:
-        warnings.append("注册表缺少广告来源/广告单元字段，Google前后台ROI的后台注册将显示为0。")
+        warnings.append("注册表缺少“末次落地页”字段，Google前后台ROI的后台注册将显示为0。")
     if not order_source:
-        warnings.append("订单表缺少广告来源/广告单元字段，Google前后台ROI的后台订单和营收将显示为0。")
+        warnings.append("订单表缺少“末次落地页”字段，Google前后台ROI的后台订单和营收将显示为0。")
     output = BytesIO()
     workbook.save(output)
     return (
