@@ -257,23 +257,37 @@ def _template_campaign_mappings(ws, start_row: int, end_row: int) -> list[tuple[
     return mappings
 
 
-def _write_front_back_roi_sheet(ws, reg, orders, google_campaign, start: date, end: date):
+def _write_front_back_roi_sheet(ws, reg, orders, google_campaign, bing, start: date, end: date):
     google_campaign = _normalize_google_campaign(google_campaign)
-    sections = ((1, 2, 5, "除订阅", False), (8, 9, 12, "新用户", True))
+    bing_campaign = bing.rename(columns={"stat_date": "date", "ad_campaign": "campaign"})
+    bing_campaign = bing_campaign.assign(
+        campaign=bing_campaign["campaign"].fillna("").astype(str).str.strip(),
+        conversion_value=0.0,
+    )
+    sections = (
+        (3, 7, "除订阅", False, google_campaign, "Google"),
+        (10, 14, "新用户", True, google_campaign, "Google"),
+        (20, 23, "除订阅", False, bing_campaign, "Bing"),
+        (26, 29, "新用户", True, bing_campaign, "Bing"),
+    )
     headers = ["广告系列", "后台注册", "后台订单量", "消耗", "后台营收", "后台ROI", "Google前台ROI", "广告单元"]
     source_fields = (None, None)
-    for header_row, first_row, last_row, label, new_only in sections:
+    for header_row, last_row, label, new_only, performance, platform in sections:
+        first_row = header_row + 1
         mappings = _template_campaign_mappings(ws, first_row, last_row)
         rows, reg_source, order_source = _campaign_backend_rows(
-            reg, orders, google_campaign, mappings, start, end, new_only
+            reg, orders, performance, mappings, start, end, new_only
         )
         source_fields = (reg_source, order_source)
         ws.cell(header_row, 1, f"{start:%m.%d}-{end:%m.%d}({label})")
         ws.cell(header_row, 8, "末次落地页关键词")
+        ws.cell(header_row, 7, f"{platform}前台ROI")
         for row, values in zip(range(first_row, last_row + 1), rows):
             for column, key in enumerate(headers[1:7], 2):
                 ws.cell(row, column, values[key])
             ws.cell(row, 5).number_format = '"$"#,##0.00'
+            if platform == "Bing":
+                ws.cell(row, 7).value = None
     return source_fields
 
 
@@ -333,8 +347,9 @@ def generate_monday_friday_brief(
     )
     reg_source, order_source = _write_front_back_roi_sheet(
         workbook["Google前后台ROI对比"],
-        web_reg, web_orders, web_google_campaign, current_start, current_end,
+        web_reg, web_orders, web_google_campaign, web_bing, current_start, current_end,
     )
+    warnings.append("Bing 消耗数据未提供前台转化价值，Bing 前台 ROI 留空。")
     if not reg_source:
         warnings.append("注册表缺少“末次落地页”字段，Google前后台ROI的后台注册将显示为0。")
     if not order_source:
