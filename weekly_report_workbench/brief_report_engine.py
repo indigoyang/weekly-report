@@ -1,22 +1,22 @@
 from __future__ import annotations
 
-from datetime import date, timedelta
+from datetime import date
 from io import BytesIO
+from pathlib import Path
+import re
 
 import pandas as pd
-from openpyxl import Workbook
-from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
-from openpyxl.utils import get_column_letter
+from openpyxl import load_workbook
 
 from report_engine import (
-    METRICS,
-    TARGET_REGIONS,
     Period,
     aggregate_metrics,
     prepare_data,
     safe_div,
 )
 from app_report_engine import (
+    APPSFLYER_BUY_CHANNELS,
+    APPSFLYER_NATURAL_CHANNELS,
     APPSFLYER_REGION_COUNTRIES,
     REGIONS,
     _sum_appsflyer_revenue,
@@ -26,72 +26,112 @@ from app_report_engine import (
 )
 
 
-RATE_METRICS = {"注册付费率", "新用户注册付费率", "ROI", "新用户ROI"}
-MONEY_METRICS = {"注册单价", "客单价", "营收", "新用户营收", "消耗"}
+ROOT = Path(__file__).resolve().parent
+BRIEF_TEMPLATE = ROOT / "assets" / "数据监控格式.xlsx"
 
 
-def _style_sheet(ws):
-    dark, lime, pale, line = "111111", "E3F85A", "F2F4F7", "D9DCE1"
-    thin = Side(style="thin", color=line)
-    ws.sheet_view.showGridLines = False
-    ws.freeze_panes = "C2"
-    for cell in ws[1]:
-        cell.fill = PatternFill("solid", fgColor=dark)
-        cell.font = Font(color="FFFFFF", bold=True)
-        cell.alignment = Alignment(horizontal="center")
-    for row in range(2, ws.max_row + 1):
-        ws.cell(row, 1).fill = PatternFill("solid", fgColor=pale)
-        for col in range(1, ws.max_column + 1):
-            ws.cell(row, col).border = Border(bottom=thin)
-        if row % 2 == 0:
-            ws.cell(row, ws.max_column).fill = PatternFill("solid", fgColor=lime)
-    widths = {1: 18, 2: 24, 3: 16, 4: 16, 5: 14}
-    for col, width in widths.items():
-        ws.column_dimensions[get_column_letter(col)].width = width
-    ws.auto_filter.ref = ws.dimensions
+WEB_TEMPLATE_METRICS = {
+    "新增注册": "新增注册",
+    "注册单价": "注册单价",
+    "新用户客单价": "__new_aov",
+    "新老用户（除订阅）注册付费率": "注册付费率",
+    "新用户注册付费率": "新用户注册付费率",
+    "新老用户（除订阅）付费量": "付费量",
+    "新老用户（除订阅）营收": "营收",
+    "新用户订单量": "新用户订单量",
+    "新用户营收": "新用户营收",
+    "消耗": "消耗",
+    "SEM新老用户ROI（除订阅）": "ROI",
+    "SEM新用户ROI": "新用户ROI",
+    "全渠道新用户ROI": "__all_channel_new_roi",
+}
 
 
-def _write_web_sheet(ws, current: pd.DataFrame, previous: pd.DataFrame):
-    ws.append(["地区", "指标", "本期", "对比期", "环比"])
-    for region in TARGET_REGIONS:
-        for metric in METRICS:
-            now = float(current.at[region, metric]) if region in current.index else 0.0
-            before = float(previous.at[region, metric]) if region in previous.index else 0.0
-            ws.append([region, metric, now, before, safe_div(now - before, before) if before else 0.0])
-            row = ws.max_row
-            value_format = "0.00%" if metric in RATE_METRICS else "$#,##0.00" if metric in MONEY_METRICS else "#,##0"
-            ws.cell(row, 3).number_format = value_format
-            ws.cell(row, 4).number_format = value_format
-            ws.cell(row, 5).number_format = "0.00%"
-    _style_sheet(ws)
+def _metric_value(frame: pd.DataFrame, all_channel: pd.DataFrame, region: str, key: str) -> float:
+    if region not in frame.index:
+        return 0.0
+    if key == "__new_aov":
+        return safe_div(frame.at[region, "新用户营收"], frame.at[region, "新用户订单量"])
+    if key == "__all_channel_new_roi":
+        revenue = float(all_channel.at[region, "新用户营收"]) if region in all_channel.index else 0.0
+        return safe_div(revenue, frame.at[region, "消耗"])
+    return float(frame.at[region, key])
 
 
-def _app_region_values(google, appsflyer, start: date, end: date, region: str | None):
-    country = APPSFLYER_REGION_COUNTRIES.get(region) if region else None
-    cost = _sum_cost(google, start, end, region) if region else _sum_cost(google, start, end)
-    revenue = _sum_appsflyer_revenue(
-        appsflyer, start, end,
-        media_sources={"googleadwords_int"},
-        country=country,
+def _write_web_template_sheet(ws, current, previous, all_current, all_previous):
+    for row in range(1, ws.max_row + 1):
+        section = ws.cell(row, 1).value
+        if not isinstance(section, str) or not section.startswith("SEM-"):
+            continue
+        region = section.removeprefix("SEM-").strip()
+        next_row = row + 1
+        while next_row <= ws.max_row and ws.cell(next_row, 1).value:
+            label = str(ws.cell(next_row, 1).value).strip()
+            key = WEB_TEMPLATE_METRICS.get(label)
+            if key:
+                now = _metric_value(current, all_current, region, key)
+                before = _metric_value(previous, all_previous, region, key)
+                ws.cell(next_row, 2, now)
+                ws.cell(next_row, 3, before)
+                ws.cell(next_row, 4, safe_div(now - before, before) if before else 0.0)
+            next_row += 1
+
+
+def _app_template_values(google, appsflyer, start: date, end: date) -> dict[str, float]:
+    paid_sources = set(APPSFLYER_BUY_CHANNELS)
+    google_cost = _sum_cost(google, start, end)
+    paid_revenue = _sum_appsflyer_revenue(appsflyer, start, end, media_sources=paid_sources)
+    natural_revenue = _sum_appsflyer_revenue(
+        appsflyer, start, end, media_sources=APPSFLYER_NATURAL_CHANNELS
     )
-    return {"Google消耗": cost, "Google投放收入": revenue, "ROI": safe_div(revenue, cost)}
+    google_revenue = _sum_appsflyer_revenue(
+        appsflyer, start, end, media_sources={"googleadwords_int"}
+    )
+    asa_revenue = _sum_appsflyer_revenue(
+        appsflyer, start, end, media_sources={"Apple Search Ads"}
+    )
+    values = {
+        "APP投放收入": paid_revenue,
+        "APP自然量收入": natural_revenue,
+        "总计": paid_revenue + natural_revenue,
+        "APP—投放新用户ROI（D7）": safe_div(paid_revenue, google_cost),
+        "Google—新用户 ROI（D7）": safe_div(google_revenue, google_cost),
+        "ASA—新用户ROI": 0.0,
+        "APP投放总收入（D7）": paid_revenue,
+        "Google收入（D7）": google_revenue,
+        "ASA收入（D7）": asa_revenue,
+    }
+    region_revenue_total = 0.0
+    for region in REGIONS:
+        revenue = _sum_appsflyer_revenue(
+            appsflyer, start, end,
+            media_sources=paid_sources,
+            country=APPSFLYER_REGION_COUNTRIES[region],
+        )
+        region_revenue_total += revenue
+        values[f"地区收入_{region}"] = revenue
+        values[f"地区ROI_{region}"] = safe_div(revenue, _sum_cost(google, start, end, region))
+    values["地区收入_其他"] = paid_revenue - region_revenue_total
+    return values
 
 
-def _write_app_sheet(ws, google, appsflyer, current_range, previous_range):
-    ws.append(["地区", "指标", "本期", "对比期", "环比"])
-    for region in ("全部地区", *REGIONS):
-        region_key = None if region == "全部地区" else region
-        current = _app_region_values(google, appsflyer, *current_range, region_key)
-        previous = _app_region_values(google, appsflyer, *previous_range, region_key)
-        for metric in ("Google消耗", "Google投放收入", "ROI"):
-            now, before = current[metric], previous[metric]
-            ws.append([region, metric, now, before, safe_div(now - before, before) if before else 0.0])
-            row = ws.max_row
-            value_format = "0.00%" if metric == "ROI" else "$#,##0.00"
-            ws.cell(row, 3).number_format = value_format
-            ws.cell(row, 4).number_format = value_format
-            ws.cell(row, 5).number_format = "0.00%"
-    _style_sheet(ws)
+def _write_app_template_sheet(ws, google, appsflyer, current_range, previous_range):
+    current = _app_template_values(google, appsflyer, *current_range)
+    previous = _app_template_values(google, appsflyer, *previous_range)
+    row_keys = {
+        2: "APP投放收入", 3: "APP自然量收入", 4: "总计",
+        9: "APP—投放新用户ROI（D7）", 10: "Google—新用户 ROI（D7）",
+        11: "ASA—新用户ROI", 12: "APP投放总收入（D7）",
+        13: "Google收入（D7）", 14: "ASA收入（D7）",
+        16: "地区收入_印度", 17: "地区收入_印度尼西亚", 18: "地区收入_台湾",
+        19: "地区收入_韩国", 20: "地区收入_其他", 22: "地区ROI_印度",
+        23: "地区ROI_印度尼西亚", 24: "地区ROI_台湾", 25: "地区ROI_韩国",
+    }
+    for row, key in row_keys.items():
+        now, before = current[key], previous[key]
+        ws.cell(row, 2, now)
+        ws.cell(row, 3, before)
+        ws.cell(row, 4, safe_div(now - before, before) if before else 0.0)
 
 
 def _first_column(frame: pd.DataFrame, candidates: tuple[str, ...]) -> str | None:
@@ -133,21 +173,23 @@ def _normalize_google_campaign(frame: pd.DataFrame) -> pd.DataFrame:
     return result[result["date"].notna() & result["campaign"].ne("")].copy()
 
 
-def _source_mask(frame: pd.DataFrame, source_field: str | None, ad_groups: set[str], campaign: str) -> pd.Series:
+def _source_mask(frame: pd.DataFrame, source_field: str | None, ad_groups: set[str]) -> pd.Series:
     if source_field is None:
         return pd.Series(False, index=frame.index)
     source = frame[source_field].fillna("").astype(str).str.strip().str.casefold()
     accepted = {value.casefold() for value in ad_groups if value}
-    accepted.add(campaign.casefold())
     return source.isin(accepted)
 
 
-def _campaign_backend_rows(reg, orders, google_campaign, start: date, end: date, new_only: bool):
+def _campaign_backend_rows(
+    reg, orders, google_campaign, campaign_mappings: list[tuple[str, set[str]]],
+    start: date, end: date, new_only: bool,
+):
     period_google = google_campaign[google_campaign["date"].dt.date.between(start, end)]
-    grouped = period_google.groupby("campaign", sort=False)
-    reg_source = _first_column(reg, ("广告来源", "末次广告来源", "广告单元", "末次广告单元"))
-    order_source = _first_column(orders, ("广告来源", "末次广告来源", "广告单元", "末次广告单元"))
-    # 订单表通常不直接带广告单元；此时按用户ID回连注册表的广告来源。
+    # 模板H列的“广告单元”是后台注册/订单归因键，不是Google API返回的ad_group列表。
+    reg_source = _first_column(reg, ("广告单元", "末次广告单元", "广告来源", "末次广告来源"))
+    order_source = _first_column(orders, ("广告单元", "末次广告单元", "广告来源", "末次广告来源"))
+    # 订单表如果没有归因字段，再按用户ID回连注册表。
     if order_source is None and reg_source is not None:
         reg_uid = _first_column(reg, ("用户ID", "用户id", "uid", "UID"))
         order_uid = _first_column(orders, ("用户ID", "用户id", "uid", "UID"))
@@ -159,27 +201,27 @@ def _campaign_backend_rows(reg, orders, google_campaign, start: date, end: date,
             orders["__brief_ad_source"] = orders[order_uid].astype(str).str.strip().map(source_by_uid).fillna("")
             order_source = "__brief_ad_source"
     rows = []
-    for campaign, campaign_google in grouped:
-        ad_groups = set(campaign_google["ad_group"].dropna().astype(str).str.strip()) - {""}
+    for campaign, ad_groups in campaign_mappings:
+        campaign_google = period_google[
+            period_google["campaign"].fillna("").astype(str).str.strip().eq(campaign)
+        ]
         spend = float(campaign_google["cost"].sum())
         conversion_value = float(campaign_google["conversion_value"].sum())
         reg_mask = (
             reg["注册时间"].dt.date.between(start, end)
             & reg["__web"]
-            & _source_mask(reg, reg_source, ad_groups, campaign)
+            & _source_mask(reg, reg_source, ad_groups)
         )
         order_mask = (
             orders["订单生成时间"].dt.date.between(start, end)
             & orders["__web"]
-            & _source_mask(orders, order_source, ad_groups, campaign)
+            & _source_mask(orders, order_source, ad_groups)
         )
         if "合作渠道" in orders.columns:
             order_mask &= orders["合作渠道"].fillna("").astype(str).str.strip().eq("")
         if new_only:
             order_mask &= orders["注册转化周期"].eq(0)
         else:
-            if "支付位置" in orders.columns:
-                order_mask &= ~orders["支付位置"].fillna("").astype(str).str.contains("订阅", na=False)
             if "末次来源类型" in orders.columns:
                 order_mask &= ~orders["末次来源类型"].fillna("").astype(str).str.upper().eq("AUTO_RENEWAL")
         backend_orders = orders.loc[order_mask]
@@ -197,35 +239,38 @@ def _campaign_backend_rows(reg, orders, google_campaign, start: date, end: date,
     return rows, reg_source, order_source
 
 
+def _split_ad_groups(value) -> set[str]:
+    return {
+        item.strip()
+        for item in re.split(r"[、,，;/；|\n]+", str(value or ""))
+        if item.strip()
+    }
+
+
+def _template_campaign_mappings(ws, start_row: int, end_row: int) -> list[tuple[str, set[str]]]:
+    mappings = []
+    for row in range(start_row, end_row + 1):
+        campaign = str(ws.cell(row, 1).value or "").strip()
+        if campaign:
+            mappings.append((campaign, _split_ad_groups(ws.cell(row, 8).value)))
+    return mappings
+
+
 def _write_front_back_roi_sheet(ws, reg, orders, google_campaign, start: date, end: date):
     google_campaign = _normalize_google_campaign(google_campaign)
-    sections = (("除订阅", False), ("新用户", True))
+    sections = ((1, 2, 5, "除订阅", False), (8, 9, 12, "新用户", True))
     headers = ["广告系列", "后台注册", "后台订单量", "消耗", "后台营收", "后台ROI", "Google前台ROI", "广告单元"]
     source_fields = (None, None)
-    for index, (label, new_only) in enumerate(sections):
-        if index:
-            ws.append([])
-            ws.append([])
-        rows, reg_source, order_source = _campaign_backend_rows(reg, orders, google_campaign, start, end, new_only)
+    for header_row, first_row, last_row, label, new_only in sections:
+        mappings = _template_campaign_mappings(ws, first_row, last_row)
+        rows, reg_source, order_source = _campaign_backend_rows(
+            reg, orders, google_campaign, mappings, start, end, new_only
+        )
         source_fields = (reg_source, order_source)
-        ws.append([f"{start:%m.%d}-{end:%m.%d}({label})", *headers[1:]])
-        header_row = ws.max_row
-        for cell in ws[header_row]:
-            cell.fill = PatternFill("solid", fgColor="FFC000" if cell.column == 1 else "F2F2F2")
-            cell.font = Font(bold=True)
-            cell.alignment = Alignment(horizontal="center")
-        for values in rows:
-            ws.append([values[column] for column in headers])
-            row = ws.max_row
-            for col in (4, 5):
-                ws.cell(row, col).number_format = '$#,##0.00'
-            for col in (6, 7):
-                ws.cell(row, col).number_format = "0%"
-    ws.sheet_view.showGridLines = False
-    ws.freeze_panes = "A2"
-    widths = [42, 14, 14, 14, 18, 14, 18, 52]
-    for column, width in enumerate(widths, 1):
-        ws.column_dimensions[get_column_letter(column)].width = width
+        ws.cell(header_row, 1, f"{start:%m.%d}-{end:%m.%d}({label})")
+        for row, values in zip(range(first_row, last_row + 1), rows):
+            for column, key in enumerate(headers[1:7], 2):
+                ws.cell(row, column, values[key])
     return source_fields
 
 
@@ -243,13 +288,24 @@ def generate_monday_friday_brief(
     web_reg, web_orders, web_google, web_bing, warnings = prepare_data(
         web_reg, web_orders, web_google, web_bing
     )
+    non_subscription_orders = web_orders[
+        ~web_orders["末次来源类型"].fillna("").astype(str).str.upper().eq("AUTO_RENEWAL")
+    ].copy()
     current = aggregate_metrics(
-        web_reg, web_orders, web_google, web_bing,
+        web_reg, non_subscription_orders, web_google, web_bing,
         Period("本期", current_start, current_end), "SEM",
     )
     previous = aggregate_metrics(
-        web_reg, web_orders, web_google, web_bing,
+        web_reg, non_subscription_orders, web_google, web_bing,
         Period("对比期", previous_start, previous_end), "SEM",
+    )
+    all_current = aggregate_metrics(
+        web_reg, web_orders, web_google, web_bing,
+        Period("本期", current_start, current_end), "全渠道",
+    )
+    all_previous = aggregate_metrics(
+        web_reg, web_orders, web_google, web_bing,
+        Period("对比期", previous_start, previous_end), "全渠道",
     )
 
     app_google, _, _, app_warnings = prepare_app_costs(
@@ -261,15 +317,19 @@ def generate_monday_friday_brief(
     warnings.extend(app_warnings)
     warnings.extend(revenue_warnings)
 
-    workbook = Workbook()
-    workbook.remove(workbook.active)
-    _write_web_sheet(workbook.create_sheet("Web SEM分地区"), current, previous)
-    _write_app_sheet(
-        workbook.create_sheet("App SEM"), app_google, app_appsflyer,
+    if not BRIEF_TEMPLATE.exists():
+        raise FileNotFoundError(f"找不到数据监控模板：{BRIEF_TEMPLATE}")
+    # 直接复用业务模板，保留原始工作表结构、字体、颜色、边框和数字格式。
+    workbook = load_workbook(BRIEF_TEMPLATE)
+    _write_web_template_sheet(
+        workbook["Web-分地区"], current, previous, all_current, all_previous
+    )
+    _write_app_template_sheet(
+        workbook["App-SEM"], app_google, app_appsflyer,
         (current_start, current_end), (previous_start, previous_end),
     )
     reg_source, order_source = _write_front_back_roi_sheet(
-        workbook.create_sheet("Google前后台ROI"),
+        workbook["Google前后台ROI对比"],
         web_reg, web_orders, web_google_campaign, current_start, current_end,
     )
     if not reg_source:

@@ -525,7 +525,7 @@ if active_port == "brief":
     if brief_generate:
         try:
             with brief_main:
-                with st.status("正在生成两个Sheet……", expanded=True) as status:
+                with st.status("正在生成三个Sheet……", expanded=True) as status:
                     query_start = min(brief_previous_start, brief_current_start)
                     query_end = max(brief_previous_end, brief_current_end)
                     brief_reg = read_uploads(brief_reg_files)
