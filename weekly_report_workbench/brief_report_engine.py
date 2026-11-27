@@ -273,6 +273,7 @@ def _write_front_back_roi_sheet(ws, reg, orders, google_campaign, start: date, e
         for row, values in zip(range(first_row, last_row + 1), rows):
             for column, key in enumerate(headers[1:7], 2):
                 ws.cell(row, column, values[key])
+            ws.cell(row, 5).number_format = '"$"#,##0.00'
     return source_fields
 
 
