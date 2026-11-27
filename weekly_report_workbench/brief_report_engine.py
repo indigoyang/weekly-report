@@ -71,9 +71,19 @@ def _write_web_template_sheet(ws, current, previous, all_current, all_previous):
             if key:
                 now = _metric_value(current, all_current, region, key)
                 before = _metric_value(previous, all_previous, region, key)
-                ws.cell(next_row, 2, now)
-                ws.cell(next_row, 3, before)
-                ws.cell(next_row, 4, safe_div(now - before, before) if before else 0.0)
+                if key == "注册单价":
+                    number_format = '"$"#,##0.00'
+                elif key in {"__new_aov", "营收", "新用户营收", "消耗"}:
+                    number_format = '"$"#,##0'
+                elif key in {"注册付费率", "新用户注册付费率"}:
+                    number_format = "0.00%"
+                elif key in {"ROI", "新用户ROI", "__all_channel_new_roi"}:
+                    number_format = "0%"
+                else:
+                    number_format = "#,##0"
+                ws.cell(next_row, 2, now).number_format = number_format
+                ws.cell(next_row, 3, before).number_format = number_format
+                ws.cell(next_row, 4, safe_div(now - before, before) if before else 0.0).number_format = "0%"
             next_row += 1
 
 
